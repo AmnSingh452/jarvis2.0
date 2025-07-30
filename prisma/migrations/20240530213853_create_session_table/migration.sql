@@ -5,6 +5,7 @@ CREATE TABLE "Session" (
     "state" TEXT NOT NULL,
     "isOnline" BOOLEAN NOT NULL DEFAULT false,
     "scope" TEXT,
+    "expires" TIMESTAMP(3) NOT NULL,
     "accessToken" TEXT NOT NULL,
     "userId" BIGINT,
     "firstName" TEXT,
