@@ -1,50 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-model User {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  email     String   @unique
-  name      String?
-  role      Role     @default(USER)
-  posts     Post[]
-}
-
-model Post {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  published Boolean  @default(false)
-  title     String   @db.VarChar(255)
-  author    User?    @relation(fields: [authorId], references: [id])
-  authorId  Int?
-}
-
-enum Role {
-  USER
-  ADMIN
-}
-
 model Session {
-  id             String   @id
-  shop           String
-  state          String
-  isOnline       Boolean  @default(false)
-  scope          String?
-  expires        DateTime @default(now())
-  accessToken    String
-  userId         BigInt?
-  firstName      String?
-  lastName       String?
-  email          String?
-  accountOwner   Boolean  @default(false)
-  locale         String?
-  collaborator   Boolean? @default(false)
-  emailVerified  Boolean? @default(false)
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+model Shop {
+  id          Int      @id @default(autoincrement())
+  shopDomain  String   @unique
+  accessToken String
+  installedAt DateTime @default(now())
 }
