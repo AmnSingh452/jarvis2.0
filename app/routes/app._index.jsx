@@ -14,9 +14,26 @@ import {
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
+import { redirect } from "@remix-run/node";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
+  
+  // Check if this is a fresh installation
+  try {
+    const { verifyFreshInstallation } = await import("../../cleanup-db.js");
+    const verification = await verifyFreshInstallation(session.shop);
+    
+    // If it's a fresh install and user hasn't seen welcome page, redirect
+    const url = new URL(request.url);
+    const hasSeenWelcome = url.searchParams.get("welcomed") === "true";
+    
+    if (verification.isFreshInstall && !hasSeenWelcome) {
+      return redirect("/app/welcome");
+    }
+  } catch (error) {
+    console.log("Fresh installation check failed:", error);
+  }
 
   return null;
 };
