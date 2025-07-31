@@ -14,7 +14,11 @@ import {
   BlockStack,
   InlineStack,
   Toast,
-  Frame
+  Frame,
+  ColorPicker,
+  hsbToHex,
+  hexToHsb,
+  Divider
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { json } from "@remix-run/node";
@@ -118,9 +122,27 @@ export default function WidgetSettings() {
     isEnabled: settings?.isEnabled ?? true,
   });
   
+  // Color picker states
+  const [primaryColorPicker, setPrimaryColorPicker] = useState(hexToHsb(formData.primaryColor));
+  const [secondaryColorPicker, setSecondaryColorPicker] = useState(hexToHsb(formData.secondaryColor));
+  const [showPrimaryPicker, setShowPrimaryPicker] = useState(false);
+  const [showSecondaryPicker, setShowSecondaryPicker] = useState(false);
+  
   const handleFieldChange = (field) => (value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setUnsavedChanges(true);
+  };
+  
+  const handlePrimaryColorChange = (color) => {
+    setPrimaryColorPicker(color);
+    const hexColor = hsbToHex(color);
+    handleFieldChange("primaryColor")(hexColor);
+  };
+  
+  const handleSecondaryColorChange = (color) => {
+    setSecondaryColorPicker(color);
+    const hexColor = hsbToHex(color);
+    handleFieldChange("secondaryColor")(hexColor);
   };
   
   const handleSave = () => {
@@ -133,18 +155,42 @@ export default function WidgetSettings() {
     setShowToast(true);
   };
   
+  // Enhanced options with user-friendly descriptions
   const positionOptions = [
-    { label: "Bottom Right", value: "bottom-right" },
+    { label: "Bottom Right (Most Popular)", value: "bottom-right" },
     { label: "Bottom Left", value: "bottom-left" },
     { label: "Top Right", value: "top-right" },
     { label: "Top Left", value: "top-left" },
   ];
   
   const buttonSizeOptions = [
-    { label: "Small (50px)", value: "50px" },
-    { label: "Medium (60px)", value: "60px" },
-    { label: "Large (70px)", value: "70px" },
-    { label: "Extra Large (80px)", value: "80px" },
+    { label: "Small (50px) - Subtle", value: "50px" },
+    { label: "Medium (60px) - Recommended", value: "60px" },
+    { label: "Large (70px) - Prominent", value: "70px" },
+    { label: "Extra Large (80px) - Bold", value: "80px" },
+  ];
+  
+  const buttonIconOptions = [
+    { label: "💬 Speech Bubble (Popular)", value: "💬" },
+    { label: "🤖 Robot Face", value: "🤖" },
+    { label: "💭 Thought Bubble", value: "💭" },
+    { label: "📞 Phone", value: "📞" },
+    { label: "✉️ Envelope", value: "✉️" },
+    { label: "❓ Question Mark", value: "❓" },
+    { label: "🆘 Help", value: "🆘" },
+    { label: "💡 Light Bulb", value: "💡" }
+  ];
+  
+  // Color presets for easy selection
+  const colorPresets = [
+    { name: "Shopify Green", primary: "#00A850", secondary: "#007A3D" },
+    { name: "Ocean Blue", primary: "#007bff", secondary: "#0056b3" },
+    { name: "Royal Purple", primary: "#6f42c1", secondary: "#5a2d91" },
+    { name: "Sunset Orange", primary: "#fd7e14", secondary: "#dc6500" },
+    { name: "Forest Green", primary: "#28a745", secondary: "#1e7e34" },
+    { name: "Ruby Red", primary: "#dc3545", secondary: "#c82333" },
+    { name: "Golden Yellow", primary: "#ffc107", secondary: "#e0a800" },
+    { name: "Midnight Black", primary: "#343a40", secondary: "#23272b" }
   ];
   
   // Show success toast when data is saved
@@ -202,36 +248,151 @@ export default function WidgetSettings() {
               <Card>
                 <BlockStack gap="400">
                   <Text variant="headingMd" as="h2">🎨 Appearance</Text>
+                  
+                  {/* Color Presets */}
+                  <div>
+                    <Text variant="headingSm" as="h3">Quick Color Themes</Text>
+                    <Text variant="bodySm" color="subdued">Choose a preset or customize your own</Text>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+                      gap: '8px', 
+                      marginTop: '12px' 
+                    }}>
+                      {colorPresets.map((preset, index) => (
+                        <button
+                          key={index}
+                          style={{
+                            border: '2px solid #e1e5e9',
+                            borderRadius: '8px',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            backgroundColor: 'white',
+                            textAlign: 'center'
+                          }}
+                          onClick={() => {
+                            handleFieldChange("primaryColor")(preset.primary);
+                            handleFieldChange("secondaryColor")(preset.secondary);
+                            setPrimaryColorPicker(hexToHsb(preset.primary));
+                            setSecondaryColorPicker(hexToHsb(preset.secondary));
+                          }}
+                        >
+                          <div style={{ 
+                            display: 'flex', 
+                            height: '20px', 
+                            borderRadius: '4px', 
+                            overflow: 'hidden',
+                            marginBottom: '4px'
+                          }}>
+                            <div style={{ flex: 1, backgroundColor: preset.primary }}></div>
+                            <div style={{ flex: 1, backgroundColor: preset.secondary }}></div>
+                          </div>
+                          <Text variant="captionMd">{preset.name}</Text>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <Divider />
+                  
                   <FormLayout>
-                    <TextField
-                      label="Primary Color"
-                      value={formData.primaryColor}
-                      onChange={handleFieldChange("primaryColor")}
-                      helpText="Main color for the chat button and user messages"
-                    />
-                    <TextField
-                      label="Secondary Color"
-                      value={formData.secondaryColor}
-                      onChange={handleFieldChange("secondaryColor")}
-                      helpText="Hover color for interactive elements"
-                    />
+                    {/* Custom Color Pickers */}
+                    <div>
+                      <Text variant="headingSm" as="h3">Primary Color</Text>
+                      <Text variant="bodySm" color="subdued">Main color for chat button and user messages</Text>
+                      <div style={{ marginTop: '8px' }}>
+                        <button
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px',
+                            border: '2px solid #e1e5e9',
+                            borderRadius: '8px',
+                            backgroundColor: 'white',
+                            cursor: 'pointer',
+                            width: '100%'
+                          }}
+                          onClick={() => setShowPrimaryPicker(!showPrimaryPicker)}
+                        >
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            backgroundColor: formData.primaryColor,
+                            borderRadius: '4px',
+                            border: '1px solid #ccc'
+                          }}></div>
+                          <Text>{formData.primaryColor}</Text>
+                        </button>
+                        {showPrimaryPicker && (
+                          <div style={{ marginTop: '8px' }}>
+                            <ColorPicker
+                              color={primaryColorPicker}
+                              onChange={handlePrimaryColorChange}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Text variant="headingSm" as="h3">Secondary Color</Text>
+                      <Text variant="bodySm" color="subdued">Hover and accent color</Text>
+                      <div style={{ marginTop: '8px' }}>
+                        <button
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px',
+                            border: '2px solid #e1e5e9',
+                            borderRadius: '8px',
+                            backgroundColor: 'white',
+                            cursor: 'pointer',
+                            width: '100%'
+                          }}
+                          onClick={() => setShowSecondaryPicker(!showSecondaryPicker)}
+                        >
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            backgroundColor: formData.secondaryColor,
+                            borderRadius: '4px',
+                            border: '1px solid #ccc'
+                          }}></div>
+                          <Text>{formData.secondaryColor}</Text>
+                        </button>
+                        {showSecondaryPicker && (
+                          <div style={{ marginTop: '8px' }}>
+                            <ColorPicker
+                              color={secondaryColorPicker}
+                              onChange={handleSecondaryColorChange}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
                     <Select
                       label="Button Size"
                       value={formData.buttonSize}
                       onChange={handleFieldChange("buttonSize")}
                       options={buttonSizeOptions}
+                      helpText="Larger buttons are more noticeable but take more space"
                     />
                     <Select
                       label="Position"
                       value={formData.position}
                       onChange={handleFieldChange("position")}
                       options={positionOptions}
+                      helpText="Bottom right is most common and expected by users"
                     />
-                    <TextField
+                    <Select
                       label="Button Icon"
                       value={formData.buttonIcon}
                       onChange={handleFieldChange("buttonIcon")}
-                      helpText="Emoji or text to display on the chat button"
+                      options={buttonIconOptions}
+                      helpText="Choose an icon that represents chat or help"
                     />
                   </FormLayout>
                 </BlockStack>
@@ -325,17 +486,35 @@ export default function WidgetSettings() {
                 </BlockStack>
               </Card>
               
-              {/* Preview */}
+              {/* Enhanced Preview */}
               <Card>
                 <BlockStack gap="400">
-                  <Text variant="headingMd" as="h2">👀 Preview</Text>
+                  <Text variant="headingMd" as="h2">👀 Live Preview</Text>
                   <div style={{ 
-                    padding: "20px", 
+                    padding: "40px", 
                     backgroundColor: "#f9f9f9", 
                     borderRadius: "8px",
                     position: "relative",
-                    height: "200px"
+                    height: "300px",
+                    border: "2px dashed #ccc"
                   }}>
+                    <Text variant="bodyMd" color="subdued" as="p" style={{ textAlign: 'center', marginBottom: '20px' }}>
+                      Preview of your store with the chatbot
+                    </Text>
+                    
+                    {/* Mock website content */}
+                    <div style={{ 
+                      backgroundColor: 'white', 
+                      padding: '20px', 
+                      borderRadius: '4px',
+                      marginBottom: '20px',
+                      opacity: 0.7
+                    }}>
+                      <div style={{ height: '12px', backgroundColor: '#e1e5e9', borderRadius: '2px', marginBottom: '8px' }}></div>
+                      <div style={{ height: '8px', backgroundColor: '#e1e5e9', borderRadius: '2px', width: '70%' }}></div>
+                    </div>
+                    
+                    {/* Chat button preview with hover effect */}
                     <div
                       style={{
                         position: "absolute",
@@ -350,17 +529,21 @@ export default function WidgetSettings() {
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
-                        fontSize: "18px",
+                        fontSize: "20px",
                         cursor: "pointer",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                        transition: "all 0.3s ease"
                       }}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = formData.secondaryColor}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = formData.primaryColor}
                     >
                       {formData.buttonIcon}
                     </div>
-                    <Text variant="bodyMd" color="subdued">
-                      Preview of your chat button position and appearance
-                    </Text>
                   </div>
+                  
+                  <Text variant="bodySm" color="subdued">
+                    This is how your chatbot button will appear on your store. Hover over it to see the secondary color effect.
+                  </Text>
                 </BlockStack>
               </Card>
             </BlockStack>
