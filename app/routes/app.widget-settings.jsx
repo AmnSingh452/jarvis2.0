@@ -15,13 +15,24 @@ import {
   InlineStack,
   Toast,
   Frame,
-  ColorPicker,
-  hsbToHex,
-  hexToHsb,
   Divider
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { json } from "@remix-run/node";
+
+// Simple color utility functions
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
+function rgbToHex(r, g, b) {
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
 
 export async function loader({ request }) {
   const { session } = await authenticate.admin(request);
@@ -122,27 +133,13 @@ export default function WidgetSettings() {
     isEnabled: settings?.isEnabled ?? true,
   });
   
-  // Color picker states
-  const [primaryColorPicker, setPrimaryColorPicker] = useState(hexToHsb(formData.primaryColor));
-  const [secondaryColorPicker, setSecondaryColorPicker] = useState(hexToHsb(formData.secondaryColor));
+  // Color picker states (simplified)
   const [showPrimaryPicker, setShowPrimaryPicker] = useState(false);
   const [showSecondaryPicker, setShowSecondaryPicker] = useState(false);
   
   const handleFieldChange = (field) => (value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setUnsavedChanges(true);
-  };
-  
-  const handlePrimaryColorChange = (color) => {
-    setPrimaryColorPicker(color);
-    const hexColor = hsbToHex(color);
-    handleFieldChange("primaryColor")(hexColor);
-  };
-  
-  const handleSecondaryColorChange = (color) => {
-    setSecondaryColorPicker(color);
-    const hexColor = hsbToHex(color);
-    handleFieldChange("secondaryColor")(hexColor);
   };
   
   const handleSave = () => {
@@ -273,8 +270,6 @@ export default function WidgetSettings() {
                           onClick={() => {
                             handleFieldChange("primaryColor")(preset.primary);
                             handleFieldChange("secondaryColor")(preset.secondary);
-                            setPrimaryColorPicker(hexToHsb(preset.primary));
-                            setSecondaryColorPicker(hexToHsb(preset.secondary));
                           }}
                         >
                           <div style={{ 
@@ -326,9 +321,17 @@ export default function WidgetSettings() {
                         </button>
                         {showPrimaryPicker && (
                           <div style={{ marginTop: '8px' }}>
-                            <ColorPicker
-                              color={primaryColorPicker}
-                              onChange={handlePrimaryColorChange}
+                            <input
+                              type="color"
+                              value={formData.primaryColor}
+                              onChange={(e) => handleFieldChange("primaryColor")(e.target.value)}
+                              style={{
+                                width: '100%',
+                                height: '40px',
+                                border: '1px solid #ccc',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                              }}
                             />
                           </div>
                         )}
@@ -364,9 +367,17 @@ export default function WidgetSettings() {
                         </button>
                         {showSecondaryPicker && (
                           <div style={{ marginTop: '8px' }}>
-                            <ColorPicker
-                              color={secondaryColorPicker}
-                              onChange={handleSecondaryColorChange}
+                            <input
+                              type="color"
+                              value={formData.secondaryColor}
+                              onChange={(e) => handleFieldChange("secondaryColor")(e.target.value)}
+                              style={{
+                                width: '100%',
+                                height: '40px',
+                                border: '1px solid #ccc',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                              }}
                             />
                           </div>
                         )}
