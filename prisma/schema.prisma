@@ -23,11 +23,33 @@ model Session {
   locale        String?
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Add relation to Shop
+  shopRef       Shop?     @relation(fields: [shop], references: [shopDomain])
 }
 
 model Shop {
+  id            Int       @id @default(autoincrement())
+  shopDomain    String    @unique
+  accessToken   String
+  installedAt   DateTime  @default(now())
+  uninstalledAt DateTime?
+  isActive      Boolean   @default(true)
+  tokenVersion  Int       @default(1)
+  sessions      Session[]
+  
+  @@index([shopDomain, isActive])
+}
+
+// Add audit trail for security compliance
+model InstallationLog {
   id          Int      @id @default(autoincrement())
-  shopDomain  String   @unique
-  accessToken String
-  installedAt DateTime @default(now())
+  shopDomain  String
+  action      String   // 'INSTALL', 'UNINSTALL', 'TOKEN_REFRESH'
+  timestamp   DateTime @default(now())
+  metadata    Json?
+  
+  @@index([shopDomain, timestamp])
 }
