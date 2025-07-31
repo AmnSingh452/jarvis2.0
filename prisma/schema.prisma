@@ -49,3 +49,37 @@ model InstallationLog {
   
   @@index([shopDomain, timestamp])
 }
+
+// Widget customization settings
+model WidgetSettings {
+  id                    Int       @id @default(autoincrement())
+  shopDomain           String    @unique
+  
+  // Appearance Settings
+  primaryColor         String    @default("#007bff")
+  secondaryColor       String    @default("#0056b3")
+  buttonSize           String    @default("60px")
+  position             String    @default("bottom-right") // bottom-right, bottom-left, top-right, top-left
+  buttonIcon           String    @default("💬")
+  
+  // Chat Window Settings
+  windowWidth          String    @default("320px")
+  windowHeight         String    @default("420px")
+  headerText           String    @default("Jarvis AI Chatbot")
+  placeholderText      String    @default("Type your message...")
+  
+  // Behavior Settings
+  welcomeMessage       String    @default("Hello! How can I assist you today?")
+  showTypingIndicator  Boolean   @default(true)
+  enableSounds         Boolean   @default(false)
+  autoOpen             Boolean   @default(false)
+  
+  // Advanced Settings
+  customCSS            String?
+  isEnabled            Boolean   @default(true)
+  
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  
+  @@index([shopDomain])
+}

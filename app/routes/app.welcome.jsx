@@ -97,8 +97,8 @@ export default function Welcome() {
                     </List>
                   </div>
                   <div style={{ marginTop: '20px' }}>
-                    <Button primary url="/app?welcomed=true">
-                      Get Started
+                    <Button primary url="/app/widget-settings">
+                      Customize Widget
                     </Button>
                   </div>
                 </div>

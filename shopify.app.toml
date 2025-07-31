@@ -3,7 +3,7 @@
 client_id = "3ea38032bd55fb833a9f5dfd0ca9d4d0"
 name = "jarvis2.0"
 handle = "jarvis2-0"
-application_url = "https://analyzed-stamp-joining-motherboard.trycloudflare.com"
+application_url = "https://hardcover-ou-colin-immune.trycloudflare.com"
 embedded = true
 
 [build]
@@ -26,7 +26,7 @@ api_version = "2025-07"
 scopes = "write_products"
 
 [auth]
-redirect_urls = ["https://analyzed-stamp-joining-motherboard.trycloudflare.com/auth/callback", "https://analyzed-stamp-joining-motherboard.trycloudflare.com/auth/shopify/callback", "https://analyzed-stamp-joining-motherboard.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://hardcover-ou-colin-immune.trycloudflare.com/auth/callback", "https://hardcover-ou-colin-immune.trycloudflare.com/auth/shopify/callback", "https://hardcover-ou-colin-immune.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false

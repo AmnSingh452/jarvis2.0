@@ -308,6 +308,30 @@ export default function Index() {
               <Card>
                 <BlockStack gap="200">
                   <Text as="h2" variant="headingMd">
+                    Jarvis AI Assistant
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    Customize your AI-powered chatbot widget to match your store's branding and behavior.
+                  </Text>
+                  <List>
+                    <List.Item>
+                      <Link url="/app/widget-settings" removeUnderline>
+                        Widget Settings
+                      </Link>{" "}
+                      - Customize appearance, colors, and behavior
+                    </List.Item>
+                    <List.Item>
+                      <Link url="/app/welcome" removeUnderline>
+                        Welcome Guide
+                      </Link>{" "}
+                      - Get started with Jarvis features
+                    </List.Item>
+                  </List>
+                </BlockStack>
+              </Card>
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="h2" variant="headingMd">
                     Next steps
                   </Text>
                   <List>
