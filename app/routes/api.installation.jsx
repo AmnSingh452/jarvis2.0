@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { cleanupShopData, verifyFreshInstallation } from "../cleanup-db.js";
+import { cleanupShopData, verifyFreshInstallation } from "../../cleanup-db.js";
 
 /**
  * API routes for managing shop installations
@@ -21,7 +21,7 @@ export async function loader({ request }) {
       return json(verification);
       
     case "info":
-      const { getShopSessionInfo } = await import("../cleanup-db.js");
+      const { getShopSessionInfo } = await import("../../cleanup-db.js");
       const info = await getShopSessionInfo(shop);
       return json(info);
       
