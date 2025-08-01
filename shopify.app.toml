@@ -3,7 +3,7 @@
 client_id = "3ea38032bd55fb833a9f5dfd0ca9d4d0"
 name = "jarvis2.0"
 handle = "jarvis2-0"
-application_url = "https://gas-limits-assuming-psychological.trycloudflare.com"
+application_url = "https://ran-dressing-spot-arbor.trycloudflare.com"
 embedded = true
 
 [build]
@@ -26,7 +26,7 @@ api_version = "2025-07"
 scopes = "write_products"
 
 [auth]
-redirect_urls = ["https://gas-limits-assuming-psychological.trycloudflare.com/auth/callback", "https://gas-limits-assuming-psychological.trycloudflare.com/auth/shopify/callback", "https://gas-limits-assuming-psychological.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://ran-dressing-spot-arbor.trycloudflare.com/auth/callback", "https://ran-dressing-spot-arbor.trycloudflare.com/auth/shopify/callback", "https://ran-dressing-spot-arbor.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false
