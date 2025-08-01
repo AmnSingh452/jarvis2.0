@@ -326,6 +326,12 @@ export default function Index() {
                       </Link>{" "}
                       - Get started with Jarvis features
                     </List.Item>
+                    <List.Item>
+                      <Link url="/app/billing" removeUnderline>
+                        Billing & Plans
+                      </Link>{" "}
+                      - Manage subscription and usage
+                    </List.Item>
                   </List>
                 </BlockStack>
               </Card>

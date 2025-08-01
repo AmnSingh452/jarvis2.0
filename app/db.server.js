@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import pkg from "@prisma/client";
+const { PrismaClient } = pkg;
 
 if (process.env.NODE_ENV !== "production") {
   if (!global.prismaGlobal) {
