@@ -123,12 +123,107 @@ export default function Index() {
 
   return (
     <Page>
-      <TitleBar title="Remix app template">
+      <TitleBar title="Jarvis AI Assistant Dashboard">
         <button variant="primary" onClick={generateProduct}>
           Generate a product
         </button>
       </TitleBar>
       <BlockStack gap="500">
+        {/* Quick Actions Section */}
+        <Layout>
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="500">
+                <Text as="h2" variant="headingLg">
+                  Quick Actions
+                </Text>
+                <Layout>
+                  <Layout.Section variant="oneHalf">
+                    <Card background="bg-surface-secondary">
+                      <BlockStack gap="300">
+                        <Text as="h3" variant="headingMd">
+                          🎨 Widget Settings
+                        </Text>
+                        <Text variant="bodyMd" as="p">
+                          Customize your chatbot's appearance, colors, and behavior to match your store's branding.
+                        </Text>
+                        <InlineStack gap="200">
+                          <Button 
+                            url="/app/widget-settings" 
+                            variant="primary"
+                          >
+                            Configure Widget
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </Card>
+                  </Layout.Section>
+                  <Layout.Section variant="oneHalf">
+                    <Card background="bg-surface-secondary">
+                      <BlockStack gap="300">
+                        <Text as="h3" variant="headingMd">
+                          💳 Billing & Plans
+                        </Text>
+                        <Text variant="bodyMd" as="p">
+                          Manage your subscription, view usage analytics, and upgrade your plan for more features.
+                        </Text>
+                        <InlineStack gap="200">
+                          <Button 
+                            url="/app/billing" 
+                            variant="primary"
+                          >
+                            Manage Billing
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </Card>
+                  </Layout.Section>
+                  <Layout.Section variant="oneHalf">
+                    <Card background="bg-surface-secondary">
+                      <BlockStack gap="300">
+                        <Text as="h3" variant="headingMd">
+                          🚀 Welcome Guide
+                        </Text>
+                        <Text variant="bodyMd" as="p">
+                          New to Jarvis? Learn how to set up and optimize your AI assistant for maximum performance.
+                        </Text>
+                        <InlineStack gap="200">
+                          <Button 
+                            url="/app/welcome" 
+                            variant="primary"
+                          >
+                            Get Started
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </Card>
+                  </Layout.Section>
+                  <Layout.Section variant="oneHalf">
+                    <Card background="bg-surface-secondary">
+                      <BlockStack gap="300">
+                        <Text as="h3" variant="headingMd">
+                          ⚡ Additional Features
+                        </Text>
+                        <Text variant="bodyMd" as="p">
+                          Explore advanced features and integrations to enhance your customer experience.
+                        </Text>
+                        <InlineStack gap="200">
+                          <Button 
+                            url="/app/additional" 
+                            variant="primary"
+                          >
+                            Explore Features
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </Card>
+                  </Layout.Section>
+                </Layout>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+        </Layout>
+        
         <Layout>
           <Layout.Section>
             <Card>

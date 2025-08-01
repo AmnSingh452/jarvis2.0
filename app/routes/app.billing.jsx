@@ -174,6 +174,20 @@ export default function Billing() {
     <Page
       title="💳 Billing & Subscription"
       subtitle="Manage your Jarvis AI Chatbot subscription"
+      secondaryActions={[
+        {
+          content: "Dashboard",
+          url: "/app"
+        },
+        {
+          content: "Widget Settings",
+          url: "/app/widget-settings"
+        },
+        {
+          content: "Additional Features",
+          url: "/app/additional"
+        }
+      ]}
     >
       <TitleBar title="Billing & Subscription" />
       
@@ -190,6 +204,31 @@ export default function Billing() {
       )}
       
       <Layout>
+        {/* Quick Navigation */}
+        <Layout.Section>
+          <Card background="bg-surface-secondary">
+            <BlockStack gap="300">
+              <Text as="h3" variant="headingMd">
+                🚀 Quick Navigation
+              </Text>
+              <InlineStack gap="200" wrap={false}>
+                <Button url="/app" variant="secondary" size="slim">
+                  ← Dashboard
+                </Button>
+                <Button url="/app/widget-settings" variant="secondary" size="slim">
+                  Widget Settings
+                </Button>
+                <Button url="/app/additional" variant="secondary" size="slim">
+                  Additional Features
+                </Button>
+                <Button url="/app/welcome" variant="secondary" size="slim">
+                  Welcome Guide
+                </Button>
+              </InlineStack>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+        
         {/* Current Subscription Status */}
         <Layout.Section>
           {subscription ? (

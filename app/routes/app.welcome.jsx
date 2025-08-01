@@ -134,10 +134,19 @@ export default function Welcome() {
               <Text variant="bodyMd" color="subdued">
                 Our support team is ready to help you get the most out of Jarvis AI.
               </Text>
-              <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
-                <Button>Contact Support</Button>
-                <Button outline>View Documentation</Button>
-                <Button outline url="/app?welcomed=true">Skip to App</Button>
+              <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <Button primary url="/app/widget-settings">
+                  Customize Widget
+                </Button>
+                <Button url="/app/billing">
+                  View Billing
+                </Button>
+                <Button url="/app/additional">
+                  Explore Features
+                </Button>
+                <Button outline url="/app?welcomed=true">
+                  Go to Dashboard
+                </Button>
               </div>
             </div>
           </Card>

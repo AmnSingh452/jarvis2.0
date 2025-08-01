@@ -220,8 +220,16 @@ export default function WidgetSettings() {
         }}
         secondaryActions={[
           {
-            content: "Back to App",
+            content: "Dashboard",
             url: "/app"
+          },
+          {
+            content: "Billing & Plans",
+            url: "/app/billing"
+          },
+          {
+            content: "Additional Features",
+            url: "/app/additional"
           }
         ]}
       >
