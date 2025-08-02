@@ -96,6 +96,22 @@ export async function createTestSubscription(shopDomain, planKey) {
       }
     });
     
+    // Ensure we have a shop record in the database (required for foreign key)
+    await prisma.shop.upsert({
+      where: { shopDomain },
+      update: {
+        isActive: true,
+        tokenVersion: 1
+      },
+      create: {
+        shopDomain,
+        accessToken: 'test_token', // Test token for development
+        installedAt: new Date(),
+        isActive: true,
+        tokenVersion: 1
+      }
+    });
+    
     // Save to database
     const subscription = await prisma.subscription.upsert({
       where: { shopDomain },
