@@ -82,14 +82,30 @@ export async function createTestSubscription(shopDomain, planKey) {
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + plan.trialDays);
     
+    // First, ensure we have a plan record in the database
+    const planRecord = await prisma.plan.upsert({
+      where: { name: plan.name },
+      update: {},
+      create: {
+        name: plan.name,
+        price: plan.price,
+        billingCycle: "MONTHLY",
+        messagesLimit: plan.messagesLimit,
+        features: plan.features,
+        isActive: true
+      }
+    });
+    
     // Save to database
     const subscription = await prisma.subscription.upsert({
       where: { shopDomain },
       update: {
+        planId: planRecord.id,
         shopifySubscriptionId: testSubscriptionId,
         planName: plan.name,
         status: 'ACTIVE',
         price: plan.price,
+        billingCycle: 'MONTHLY',
         currentPeriodStart,
         currentPeriodEnd,
         messagesLimit: plan.messagesLimit,
@@ -99,15 +115,20 @@ export async function createTestSubscription(shopDomain, planKey) {
       },
       create: {
         shopDomain,
+        planId: planRecord.id,
         shopifySubscriptionId: testSubscriptionId,
         planName: plan.name,
         status: 'ACTIVE',
         price: plan.price,
+        billingCycle: 'MONTHLY',
         currentPeriodStart,
         currentPeriodEnd,
         messagesLimit: plan.messagesLimit,
         messagesUsed: 0,
         trialEndsAt
+      },
+      include: {
+        plan: true
       }
     });
     
