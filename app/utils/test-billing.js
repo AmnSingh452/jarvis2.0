@@ -101,10 +101,8 @@ export async function createTestSubscription(shopDomain, planKey) {
       where: { shopDomain },
       update: {
         planId: planRecord.id,
-        shopifySubscriptionId: testSubscriptionId,
-        planName: plan.name,
+        shopifyChargeId: testSubscriptionId,
         status: 'ACTIVE',
-        price: plan.price,
         billingCycle: 'MONTHLY',
         currentPeriodStart,
         currentPeriodEnd,
@@ -116,10 +114,8 @@ export async function createTestSubscription(shopDomain, planKey) {
       create: {
         shopDomain,
         planId: planRecord.id,
-        shopifySubscriptionId: testSubscriptionId,
-        planName: plan.name,
+        shopifyChargeId: testSubscriptionId,
         status: 'ACTIVE',
-        price: plan.price,
         billingCycle: 'MONTHLY',
         currentPeriodStart,
         currentPeriodEnd,
@@ -140,14 +136,14 @@ export async function createTestSubscription(shopDomain, planKey) {
       success: true,
       subscription: {
         id: testSubscriptionId,
-        planName: plan.name,
+        planName: subscription.plan.name,
         status: 'ACTIVE',
-        price: plan.price,
+        price: subscription.plan.price,
         trialDays: plan.trialDays,
         nextBillingDate: currentPeriodEnd.toISOString(),
         createdAt: new Date().toISOString()
       },
-      message: `Successfully subscribed to ${plan.name} plan! (Test Mode)`
+      message: `Successfully subscribed to ${subscription.plan.name} plan! (Test Mode)`
     };
   } catch (error) {
     console.error("Test billing error:", error);
@@ -161,7 +157,10 @@ export async function checkTestSubscription(shopDomain) {
     const prisma = new PrismaClient();
     
     const subscription = await prisma.subscription.findUnique({
-      where: { shopDomain }
+      where: { shopDomain },
+      include: {
+        plan: true
+      }
     });
     
     await prisma.$disconnect();
@@ -170,10 +169,10 @@ export async function checkTestSubscription(shopDomain) {
       return {
         hasActiveSubscription: subscription.status === 'ACTIVE',
         subscription: {
-          id: subscription.shopifySubscriptionId,
-          planName: subscription.planName,
+          id: subscription.shopifyChargeId,
+          planName: subscription.plan.name,
           status: subscription.status,
-          price: subscription.price,
+          price: subscription.plan.price,
           trialDays: 0, // Trial would be calculated based on trialEndsAt
           nextBillingDate: subscription.currentPeriodEnd?.toISOString(),
           createdAt: subscription.createdAt.toISOString()
