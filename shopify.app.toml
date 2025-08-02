@@ -21,9 +21,17 @@ api_version = "2025-07"
   topics = [ "app/uninstalled" ]
   uri = "/webhooks/app/uninstalled"
 
+  [[webhooks.subscriptions]]
+  topics = [ "app_subscriptions/update" ]
+  uri = "/webhooks/app_subscriptions/update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app_purchases_one_time/update" ]
+  uri = "/webhooks/app_purchases_one_time/update"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+scopes = "write_products,read_customers,write_payment_terms,read_products,read_orders,read_discounts,write_discounts,read_product_listings,read_fulfillments"
 
 [auth]
 redirect_urls = ["https://jarvis2-0-djg1.onrender.com/auth/callback", "https://jarvis2-0-djg1.onrender.com/auth/shopify/callback", "https://jarvis2-0-djg1.onrender.com/api/auth/callback"]

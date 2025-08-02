@@ -1,134 +1,115 @@
-import { useState } from "react";
-import { useLoaderData, useSubmit, useActionData, useFetcher } from "@remix-run/react";
+import { useState, useCallback } from "react";
+import { json, redirect } from "@remix-run/node";
+import { useLoaderData, useActionData, useNavigation, useSubmit } from "@remix-run/react";
 import {
+  Card,
   Page,
   Layout,
-  Card,
   Text,
   Button,
+  Banner,
+  Box,
+  Divider,
+  InlineStack,
+  BlockStack,
   Badge,
   List,
-  Banner,
-  BlockStack,
-  InlineStack,
-  Divider,
+  Frame,
+  Toast,
+  DataTable,
+  EmptyState,
   Spinner,
-  Box
 } from "@shopify/polaris";
-import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
-import { json, redirect } from "@remix-run/node";
-import { checkSubscriptionStatus, createTrialSubscription, getSubscriptionAnalytics, createDefaultPlans } from "../utils/billing.js";
-import prisma from "../db.server.js";
+import { 
+  TEST_PLANS,
+  TEST_CREDIT_CARDS,
+  createTestSubscription,
+  checkTestSubscription,
+  cancelTestSubscription,
+  getTestAnalytics
+} from "../utils/test-billing";
 
 export async function loader({ request }) {
   try {
     const { session } = await authenticate.admin(request);
     
-    // Ensure default plans exist
-    await ensureDefaultPlansExist();
+    if (!session || !session.shop) {
+      throw new Error("No valid session found");
+    }
     
-    // Get current subscription and analytics
-    const subscriptionCheck = await checkSubscriptionStatus(session.shop);
-    const analytics = await getSubscriptionAnalytics(session.shop);
+    // Check for active test subscription
+    const subscriptionData = await checkTestSubscription(session.shop);
     
-    // Get available plans
-    const plans = await prisma.plan.findMany({
-      where: { isActive: true },
-      orderBy: { price: 'asc' }
-    });
+    // Get analytics data if subscription exists
+    let analytics = null;
+    if (subscriptionData.subscription) {
+      analytics = await getTestAnalytics(session.shop);
+    }
     
-    return json({ 
-      subscription: analytics.hasData ? analytics.subscription : null,
-      analytics: analytics.hasData ? analytics.analytics : null,
-      plans, 
-      shopDomain: session.shop,
-      hasAccess: subscriptionCheck.hasAccess,
-      accessReason: subscriptionCheck.reason
+    return json({
+      subscription: subscriptionData.subscription,
+      analytics,
+      plans: TEST_PLANS,
+      hasActiveSubscription: subscriptionData.hasActiveSubscription,
+      isProduction: false, // Always test mode for now
+      shopDomain: session.shop
     });
   } catch (error) {
     console.error('Billing loader error:', error);
     return json({ 
-      error: 'Failed to load billing information',
       subscription: null,
-      plans: [],
+      analytics: null,
+      plans: TEST_PLANS,
+      hasActiveSubscription: false,
+      error: error.message,
+      isProduction: false,
       shopDomain: null
     });
-  }
-}
-
-async function ensureDefaultPlansExist() {
-  try {
-    const planCount = await prisma.plan.count();
-    
-    if (planCount === 0) {
-      console.log('Creating default billing plans...');
-      await createDefaultPlans();
-    }
-  } catch (error) {
-    console.error('Error ensuring default plans exist:', error);
   }
 }
 
 export async function action({ request }) {
   try {
     const { session } = await authenticate.admin(request);
-    const formData = await request.formData();
-    const action = formData.get("_action");
     
-    if (action === "start_trial") {
-      const result = await createTrialSubscription(session.shop);
+    if (!session || !session.shop) {
+      return json({ error: "No valid session found" }, { status: 401 });
+    }
+    
+    const formData = await request.formData();
+    const actionType = formData.get("actionType");
+    
+    if (actionType === "subscribe") {
+      const planKey = formData.get("planKey");
+      
+      if (!planKey || !TEST_PLANS[planKey]) {
+        return json({ error: "Invalid plan selected" }, { status: 400 });
+      }
+      
+      const result = await createTestSubscription(session.shop, planKey);
       
       if (result.success) {
         return json({ 
           success: true, 
-          message: "Trial subscription started successfully!" 
+          message: result.message
         });
       } else {
-        return json({ 
-          error: result.error || "Failed to start trial subscription" 
-        }, { status: 400 });
+        return json({ error: result.error }, { status: 400 });
       }
     }
     
-    if (action === "select_plan") {
-      const planId = formData.get("planId");
+    if (actionType === "cancel") {
+      const result = await cancelTestSubscription(session.shop);
       
-      const plan = await prisma.plan.findUnique({
-        where: { id: planId }
-      });
-      
-      if (!plan) {
-        return json({ error: "Plan not found" }, { status: 404 });
+      if (result.success) {
+        return json({ 
+          success: true, 
+          message: result.message
+        });
+      } else {
+        return json({ error: result.error }, { status: 400 });
       }
-      
-      // For now, just create a pending subscription
-      // In production, this would integrate with Shopify's billing API
-      await prisma.subscription.upsert({
-        where: { shopDomain: session.shop },
-        update: {
-          planId: plan.id,
-          status: 'PENDING',
-          messagesLimit: plan.messagesLimit,
-          currentPeriodStart: new Date(),
-          currentPeriodEnd: new Date(Date.now() + (plan.billingCycle === 'YEARLY' ? 365 : 30) * 24 * 60 * 60 * 1000)
-        },
-        create: {
-          shopDomain: session.shop,
-          planId: plan.id,
-          status: 'PENDING',
-          billingCycle: plan.billingCycle,
-          currentPeriodStart: new Date(),
-          currentPeriodEnd: new Date(Date.now() + (plan.billingCycle === 'YEARLY' ? 365 : 30) * 24 * 60 * 60 * 1000),
-          messagesLimit: plan.messagesLimit,
-          messagesUsed: 0
-        }
-      });
-      
-      return json({ 
-        success: true, 
-        message: `${plan.name} plan selected! (Demo mode - no actual billing)` 
-      });
     }
     
     return json({ error: "Invalid action" }, { status: 400 });
@@ -139,330 +120,312 @@ export async function action({ request }) {
 }
 
 export default function Billing() {
-  const { subscription, analytics, plans, shopDomain, hasAccess, accessReason } = useLoaderData();
+  const { 
+    subscription, 
+    analytics, 
+    plans, 
+    hasActiveSubscription, 
+    error, 
+    isProduction,
+    shopDomain 
+  } = useLoaderData();
   const actionData = useActionData();
+  const navigation = useNavigation();
   const submit = useSubmit();
-  
-  const handleStartTrial = () => {
+  const [showToast, setShowToast] = useState(false);
+
+  const isLoading = navigation.state === "submitting";
+
+  const handleSubscribe = useCallback((planKey) => {
     const formData = new FormData();
-    formData.append("_action", "start_trial");
+    formData.append("actionType", "subscribe");
+    formData.append("planKey", planKey);
     submit(formData, { method: "post" });
+  }, [submit]);
+
+  const handleCancel = useCallback(() => {
+    if (confirm("Are you sure you want to cancel your subscription?")) {
+      const formData = new FormData();
+      formData.append("actionType", "cancel");
+      submit(formData, { method: "post" });
+    }
+  }, [submit]);
+
+  // Show success toast
+  if (actionData?.success && !showToast) {
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  }
+
+  const toastMarkup = showToast && actionData?.success ? (
+    <Toast content={actionData.message} onDismiss={() => setShowToast(false)} />
+  ) : null;
+
+  const renderPlanCard = (planKey, plan) => {
+    const isCurrentPlan = subscription?.planId === planKey;
+    const isRecommended = planKey === 'PROFESSIONAL';
+
+    return (
+      <Card key={planKey}>
+        <BlockStack gap="400">
+          <InlineStack align="space-between">
+            <Text variant="headingMd" as="h3">
+              {plan.name}
+            </Text>
+            {isRecommended && <Badge tone="success">Recommended</Badge>}
+            {isCurrentPlan && <Badge tone="info">Current Plan</Badge>}
+          </InlineStack>
+          
+          <Text variant="heading2xl" as="h2">
+            ${plan.price}/month
+          </Text>
+          
+          <Text variant="bodyMd" tone="subdued">
+            {plan.features[0]} • {plan.trialDays} day free trial
+          </Text>
+          
+          <List type="bullet">
+            {plan.features.map((feature, index) => (
+              <List.Item key={index}>{feature}</List.Item>
+            ))}
+          </List>
+          
+          <Divider />
+          
+          <Box>
+            {isCurrentPlan ? (
+              <Button 
+                variant="primary" 
+                tone="critical"
+                onClick={handleCancel}
+                loading={isLoading}
+                disabled={isLoading}
+              >
+                Cancel Subscription
+              </Button>
+            ) : (
+              <Button 
+                variant="primary"
+                onClick={() => handleSubscribe(planKey)}
+                loading={isLoading}
+                disabled={isLoading || hasActiveSubscription}
+              >
+                {hasActiveSubscription ? "Upgrade to This Plan" : "Subscribe Now"}
+              </Button>
+            )}
+          </Box>
+        </BlockStack>
+      </Card>
+    );
   };
-  
-  const handlePlanSelect = (planId) => {
-    const formData = new FormData();
-    formData.append("_action", "select_plan");
-    formData.append("planId", planId);
-    submit(formData, { method: "post" });
-  };
-  
-  const formatPrice = (price, cycle) => {
-    return `$${price}/${cycle === 'MONTHLY' ? 'month' : 'year'}`;
-  };
-  
-  const getStatusBadge = (status) => {
-    const statusMap = {
-      'ACTIVE': { status: 'success', text: 'Active' },
-      'TRIAL': { status: 'info', text: 'Trial' },
-      'PENDING': { status: 'warning', text: 'Pending' },
-      'CANCELLED': { status: 'critical', text: 'Cancelled' }
-    };
-    return statusMap[status] || { status: 'default', text: status };
+
+  const renderAnalytics = () => {
+    if (!analytics) return null;
+
+    const rows = [
+      ['Total Usage', analytics.totalUsage?.toString() || '0'],
+      ['Current Period Usage', analytics.currentPeriodUsage?.toString() || '0'],
+      ['Usage Limit', analytics.usageLimit?.toString() || 'Unlimited'],
+      ['Billing Cycle Start', analytics.billingCycleStart ? new Date(analytics.billingCycleStart).toLocaleDateString() : 'N/A'],
+      ['Next Billing Date', analytics.nextBillingDate ? new Date(analytics.nextBillingDate).toLocaleDateString() : 'N/A'],
+    ];
+
+    return (
+      <Card>
+        <BlockStack gap="400">
+          <Text variant="headingMd" as="h3">
+            Usage Analytics
+          </Text>
+          <DataTable
+            columnContentTypes={['text', 'text']}
+            headings={['Metric', 'Value']}
+            rows={rows}
+          />
+        </BlockStack>
+      </Card>
+    );
   };
 
   return (
-    <Page
-      title="💳 Billing & Subscription"
-      subtitle="Manage your Jarvis AI Chatbot subscription"
-      secondaryActions={[
-        {
-          content: "Dashboard",
-          url: "/app"
-        },
-        {
-          content: "Widget Settings",
-          url: "/app/widget-settings"
-        },
-        {
-          content: "Additional Features",
-          url: "/app/additional"
-        }
-      ]}
-    >
-      <TitleBar title="Billing & Subscription" />
-      
-      {actionData?.error && (
-        <Banner status="critical" onDismiss={() => {}}>
-          <p>{actionData.error}</p>
-        </Banner>
-      )}
-      
-      {actionData?.success && (
-        <Banner status="success" onDismiss={() => {}}>
-          <p>{actionData.message}</p>
-        </Banner>
-      )}
-      
-      <Layout>
-        {/* Quick Navigation */}
-        <Layout.Section>
-          <Card background="bg-surface-secondary">
-            <BlockStack gap="300">
-              <Text as="h3" variant="headingMd">
-                🚀 Quick Navigation
-              </Text>
-              <InlineStack gap="200" wrap={false}>
-                <Button url="/app" variant="secondary" size="slim">
-                  ← Dashboard
-                </Button>
-                <Button url="/app/widget-settings" variant="secondary" size="slim">
-                  Widget Settings
-                </Button>
-                <Button url="/app/additional" variant="secondary" size="slim">
-                  Additional Features
-                </Button>
-                <Button url="/app/welcome" variant="secondary" size="slim">
-                  Welcome Guide
-                </Button>
-              </InlineStack>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
+    <Frame>
+      <Page
+        title="Billing & Plans"
+        subtitle="🧪 Test Mode - Safe testing with simulated payments"
+        compactTitle
+      >
+        {toastMarkup}
         
-        {/* Current Subscription Status */}
-        <Layout.Section>
-          {subscription ? (
-            <Card>
-              <BlockStack gap="400">
-                <Text variant="headingMd" as="h2">
-                  Current Subscription
+        <Layout>
+          {/* Test Mode Banner */}
+          <Layout.Section>
+            <Banner tone="info">
+              <BlockStack gap="200">
+                <Text variant="headingMd" as="h3">
+                  🧪 Test Mode Active - Safe Testing Environment
                 </Text>
-                <Box
-                  padding="400"
-                  background="bg-surface-secondary"
-                  borderRadius="200"
-                >
-                  <InlineStack align="space-between" blockAlign="center">
-                    <BlockStack gap="200">
-                      <Text variant="headingLg" as="h3">
-                        {subscription.plan.name}
-                      </Text>
-                      <Text variant="bodyMd" color="subdued">
-                        {formatPrice(subscription.plan.price, subscription.billingCycle)}
-                      </Text>
-                      <Text variant="bodySm" color="subdued">
-                        {subscription.messagesUsed}/{subscription.messagesLimit} messages used
-                      </Text>
-                    </BlockStack>
-                    <Badge {...getStatusBadge(subscription.status)}>
-                      {getStatusBadge(subscription.status).text}
-                    </Badge>
-                  </InlineStack>
-                </Box>
-                
-                {analytics && (
-                  <BlockStack gap="200">
-                    <Text variant="bodyMd" fontWeight="semibold">Usage Analytics</Text>
-                    <div style={{
-                      backgroundColor: '#f8f9fa',
-                      padding: '16px',
-                      borderRadius: '8px'
-                    }}>
-                      <InlineStack align="space-between" blockAlign="center">
-                        <Text variant="bodyMd">Messages Used</Text>
-                        <Text variant="bodyMd">
-                          {subscription.messagesUsed}/{subscription.messagesLimit}
-                        </Text>
-                      </InlineStack>
-                      <div style={{
-                        width: '100%',
-                        height: '8px',
-                        backgroundColor: '#e1e5e9',
-                        borderRadius: '4px',
-                        overflow: 'hidden',
-                        marginTop: '8px'
-                      }}>
-                        <div style={{
-                          width: `${Math.min(analytics.usagePercentage, 100)}%`,
-                          height: '100%',
-                          backgroundColor: analytics.isNearLimit ? '#dc3545' : '#007bff',
-                          borderRadius: '4px',
-                          transition: 'width 0.3s ease'
-                        }}></div>
-                      </div>
-                      <InlineStack align="space-between" blockAlign="center" gap="200">
-                        <Text variant="bodySm" color="subdued">
-                          {analytics.remainingDays} days remaining
-                        </Text>
-                        <Text variant="bodySm" color="subdued">
-                          {analytics.usagePercentage.toFixed(1)}% used
-                        </Text>
-                      </InlineStack>
-                    </div>
-                    
-                    {analytics.isNearLimit && (
-                      <Banner status="warning">
-                        <p>You're approaching your message limit. Consider upgrading your plan.</p>
-                      </Banner>
-                    )}
-                    
-                    {analytics.isExpiringSoon && (
-                      <Banner status="info">
-                        <p>Your subscription expires in {analytics.remainingDays} days.</p>
-                      </Banner>
-                    )}
-                  </BlockStack>
-                )}
-                
-                <Text variant="bodySm" color="subdued">
-                  Next billing date: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                <Text variant="bodyMd">
+                  All billing is simulated. No real charges will be made. Use these test credit cards:
                 </Text>
+                <List type="bullet">
+                  <List.Item><strong>Visa:</strong> {TEST_CREDIT_CARDS.VISA}</List.Item>
+                  <List.Item><strong>Mastercard:</strong> {TEST_CREDIT_CARDS.MASTERCARD}</List.Item>
+                  <List.Item><strong>Expiry:</strong> {TEST_CREDIT_CARDS.EXPIRY} | <strong>CVV:</strong> {TEST_CREDIT_CARDS.CVV}</List.Item>
+                </List>
               </BlockStack>
-            </Card>
-          ) : (
-            <Card>
-              <BlockStack gap="300">
-                <Text variant="headingMd" as="h2">
-                  Welcome to Jarvis AI! 🚀
-                </Text>
-                <Text variant="bodyMd" color="subdued">
-                  Start with a free trial to explore all features
-                </Text>
-                <Banner status="info">
-                  <p>No active subscription found. Start your free trial to begin using Jarvis AI features!</p>
-                </Banner>
-                <Button
-                  primary
-                  size="large"
-                  onClick={handleStartTrial}
-                >
-                  🎉 Start Free Trial (14 Days)
-                </Button>
-              </BlockStack>
-            </Card>
+            </Banner>
+          </Layout.Section>
+
+          {/* Error Banner */}
+          {(error || actionData?.error) && (
+            <Layout.Section>
+              <Banner tone="critical">
+                <p>{error || actionData?.error}</p>
+              </Banner>
+            </Layout.Section>
           )}
-        </Layout.Section>
-        
-        {/* Available Plans */}
-        <Layout.Section>
-          <Card>
+
+          {/* Current Subscription Status */}
+          {hasActiveSubscription && subscription && (
+            <Layout.Section>
+              <Card>
+                <BlockStack gap="400">
+                  <InlineStack align="space-between">
+                    <Text variant="headingMd" as="h3">
+                      Current Subscription
+                    </Text>
+                    <Badge tone="success">Active</Badge>
+                  </InlineStack>
+                  
+                  <InlineStack gap="400">
+                    <Text variant="bodyMd">
+                      <strong>Plan:</strong> {subscription.planName || 'N/A'}
+                    </Text>
+                    <Text variant="bodyMd">
+                      <strong>Status:</strong> {subscription.status || 'N/A'}
+                    </Text>
+                    {subscription.trialDays && (
+                      <Text variant="bodyMd">
+                        <strong>Trial Days:</strong> {subscription.trialDays}
+                      </Text>
+                    )}
+                  </InlineStack>
+                  
+                  {subscription.nextBillingDate && (
+                    <Text variant="bodyMd" tone="subdued">
+                      Next billing date: {new Date(subscription.nextBillingDate).toLocaleDateString()}
+                    </Text>
+                  )}
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+          )}
+
+          {/* Usage Analytics */}
+          {analytics && (
+            <Layout.Section>
+              {renderAnalytics()}
+            </Layout.Section>
+          )}
+
+          {/* Available Plans */}
+          <Layout.Section>
             <BlockStack gap="500">
-              <Text variant="headingMd" as="h2">
-                Choose Your Plan
+              <Text variant="headingLg" as="h2">
+                {hasActiveSubscription ? "Available Plans" : "Choose Your Plan"}
               </Text>
               
-              {plans.length === 0 ? (
-                <Banner status="warning">
-                  <p>No billing plans available. Please contact support.</p>
+              {!isProduction && (
+                <Banner tone="info">
+                  <p>
+                    This is the production billing system. In production, payments will be processed through Shopify's billing API.
+                    Shopify handles all payment processing and takes a 20% commission on subscription fees.
+                  </p>
                 </Banner>
-              ) : (
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-                  gap: '20px' 
-                }}>
-                  {plans.map((plan) => {
-                    const isCurrentPlan = subscription?.planId === plan.id;
-                    const isFreePlan = plan.price === 0;
-                    
-                    return (
-                      <div
-                        key={plan.id}
-                        style={{
-                          border: isCurrentPlan ? '3px solid #00a847' : '2px solid #e1e5e9',
-                          borderRadius: '12px',
-                          padding: '24px',
-                          backgroundColor: 'white',
-                          position: 'relative'
-                        }}
-                      >
-                        {isCurrentPlan && (
-                          <div style={{
-                            position: 'absolute',
-                            top: '-10px',
-                            left: '20px',
-                            backgroundColor: '#00a847',
-                            color: 'white',
-                            padding: '4px 12px',
-                            borderRadius: '12px',
-                            fontSize: '12px',
-                            fontWeight: 'bold'
-                          }}>
-                            CURRENT PLAN
-                          </div>
-                        )}
-                        
-                        {isFreePlan && (
-                          <div style={{
-                            position: 'absolute',
-                            top: '-10px',
-                            right: '20px',
-                            backgroundColor: '#007bff',
-                            color: 'white',
-                            padding: '4px 12px',
-                            borderRadius: '12px',
-                            fontSize: '12px',
-                            fontWeight: 'bold'
-                          }}>
-                            FREE
-                          </div>
-                        )}
-                        
-                        <BlockStack gap="300">
-                          <Text variant="headingLg" as="h3">
-                            {plan.name}
-                          </Text>
-                          
-                          <div>
-                            <Text variant="heading2xl" as="p">
-                              ${plan.price}
-                            </Text>
-                            <Text variant="bodyMd" color="subdued">
-                              per {plan.billingCycle === 'MONTHLY' ? 'month' : 'year'}
-                            </Text>
-                          </div>
-                          
-                          <List>
-                            <List.Item>{plan.messagesLimit.toLocaleString()} messages per month</List.Item>
-                            {plan.features && plan.features.map((feature, index) => (
-                              <List.Item key={index}>{feature}</List.Item>
-                            ))}
-                          </List>
-                          
-                          <Button
-                            primary={!isCurrentPlan}
-                            disabled={isCurrentPlan}
-                            size="large"
-                            onClick={() => handlePlanSelect(plan.id)}
-                            fullWidth
-                          >
-                            {isCurrentPlan ? 'Current Plan' : `Select ${plan.name}`}
-                          </Button>
-                        </BlockStack>
-                      </div>
-                    );
-                  })}
-                </div>
               )}
+              
+              <Layout>
+                {Object.entries(plans).map(([planKey, plan]) => (
+                  <Layout.Section key={planKey} variant="oneThird">
+                    {renderPlanCard(planKey, plan)}
+                  </Layout.Section>
+                ))}
+              </Layout>
             </BlockStack>
-          </Card>
-        </Layout.Section>
-        
-        {/* Demo Notice */}
-        <Layout.Section>
-          <Banner status="info">
-            <BlockStack gap="200">
-              <Text variant="bodyMd" fontWeight="semibold">
-                Demo Mode Notice
-              </Text>
-              <Text variant="bodyMd">
-                This is a demonstration of the billing system. In production, this would integrate with Shopify's 
-                native billing API for secure payment processing. No actual charges will be made.
-              </Text>
-            </BlockStack>
-          </Banner>
-        </Layout.Section>
-      </Layout>
-    </Page>
+          </Layout.Section>
+
+          {/* No Subscription Message */}
+          {!hasActiveSubscription && !isLoading && (
+            <Layout.Section>
+              <EmptyState
+                heading="No active subscription"
+                action={{
+                  content: "Choose a plan above",
+                  onAction: () => window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+                image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+              >
+                <p>
+                  Select a subscription plan to start using advanced features of the chatbot widget.
+                  All plans include a free trial period.
+                </p>
+              </EmptyState>
+            </Layout.Section>
+          )}
+
+          {/* Production Information */}
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                <Text variant="headingMd" as="h3">
+                  How Production Billing Works
+                </Text>
+                <List type="bullet">
+                  <List.Item>
+                    <strong>Shopify Native:</strong> All payments are processed through Shopify's secure billing system
+                  </List.Item>
+                  <List.Item>
+                    <strong>Revenue Share:</strong> Shopify takes a 20% commission on all subscription fees
+                  </List.Item>
+                  <List.Item>
+                    <strong>Automatic Billing:</strong> Subscriptions are automatically renewed and charged
+                  </List.Item>
+                  <List.Item>
+                    <strong>Trial Period:</strong> All plans include a trial period for new subscribers
+                  </List.Item>
+                  <List.Item>
+                    <strong>Usage Tracking:</strong> Monitor your app usage and subscription metrics
+                  </List.Item>
+                  <List.Item>
+                    <strong>Webhook Integration:</strong> Real-time updates for subscription changes
+                  </List.Item>
+                </List>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+
+          {/* Developer Information */}
+          {!isProduction && (
+            <Layout.Section>
+              <Card>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h3">
+                    Development Mode
+                  </Text>
+                  <Text variant="bodyMd">
+                    You're currently in development mode. To test the billing system:
+                  </Text>
+                  <List type="number">
+                    <List.Item>Ensure your development store is set up in Shopify Partners</List.Item>
+                    <List.Item>The app must be installed in a development store</List.Item>
+                    <List.Item>Billing will be processed through Shopify's billing API</List.Item>
+                    <List.Item>Use development store's test payment methods</List.Item>
+                  </List>
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+          )}
+        </Layout>
+      </Page>
+    </Frame>
   );
 }
