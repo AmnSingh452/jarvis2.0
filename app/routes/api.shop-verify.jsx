@@ -1,9 +1,11 @@
-import { authenticate } from "../shopify.server";
 import { json } from "@remix-run/node";
-import db from "../db.server";
 
 export const loader = async ({ request }) => {
   try {
+    // Import server modules inside the function to avoid client bundling issues
+    const { authenticate } = await import("../shopify.server");
+    const db = (await import("../db.server")).default;
+    
     console.log("🔍 Shop verification request received");
     
     const url = new URL(request.url);

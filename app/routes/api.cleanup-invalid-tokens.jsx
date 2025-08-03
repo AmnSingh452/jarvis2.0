@@ -1,9 +1,11 @@
 import { json } from "@remix-run/node";
-import db from "../db.server.js";
 
 // API endpoint to cleanup invalid tokens and sessions
 export async function loader({ request }) {
   try {
+    // Import server module inside the function to avoid client bundling issues
+    const db = (await import("../db.server.js")).default;
+    
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
     
