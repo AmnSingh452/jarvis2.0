@@ -7,26 +7,41 @@ export const action = async ({ request }) => {
   console.log(`🔔 Received ${topic} webhook for ${shop}`);
 
   try {
-    // Clean up ALL data for this shop when they uninstall
-    console.log(`🧹 Cleaning up data for uninstalled shop: ${shop}`);
+    console.log(`🧹 Processing uninstallation for shop: ${shop}`);
     
-    // Delete all sessions for this shop (includes all tokens)
+    // Mark shop as inactive and set uninstall timestamp
+    const updatedShop = await db.shop.updateMany({
+      where: { shopDomain: shop },
+      data: { 
+        isActive: false,
+        uninstalledAt: new Date(),
+        accessToken: null  // Clear the access token on uninstall
+      }
+    });
+    console.log(`✅ Marked ${updatedShop.count} shop(s) as inactive for ${shop}`);
+    
+    // Clean up sessions for this shop (invalidate all tokens)
     const deletedSessions = await db.session.deleteMany({ 
       where: { shop } 
     });
     console.log(`✅ Deleted ${deletedSessions.count} session(s) for ${shop}`);
     
-    // Also clean up from Shop table if it exists
-    const deletedShops = await db.shop.deleteMany({ 
-      where: { shopDomain: shop } 
+    // Log uninstallation event
+    await db.installationLog.create({
+      data: {
+        shopDomain: shop,
+        action: "UNINSTALLED",
+        metadata: {
+          timestamp: new Date().toISOString(),
+          sessionsDeleted: deletedSessions.count
+        }
+      }
     });
-    console.log(`✅ Deleted ${deletedShops.count} shop record(s) for ${shop}`);
     
-    // Log successful cleanup
-    console.log(`🎉 Successfully cleaned up all data for ${shop}`);
+    console.log(`🎉 Successfully processed uninstallation for ${shop}`);
     
   } catch (error) {
-    console.error(`❌ Error cleaning up data for ${shop}:`, error);
+    console.error(`❌ Error processing uninstallation for ${shop}:`, error);
     // Don't throw error - webhook should still return success
   }
 

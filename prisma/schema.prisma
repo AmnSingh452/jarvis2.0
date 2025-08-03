@@ -36,114 +36,92 @@ model Shop {
   isActive      Boolean       @default(true)
   tokenVersion  Int           @default(1)
   subscription  Subscription?
-  
+
   @@index([shopDomain, isActive])
 }
 
-// Add audit trail for security compliance
 model InstallationLog {
-  id          Int      @id @default(autoincrement())
-  shopDomain  String
-  action      String   // 'INSTALL', 'UNINSTALL', 'TOKEN_REFRESH'
-  timestamp   DateTime @default(now())
-  metadata    Json?
-  
+  id         Int      @id @default(autoincrement())
+  shopDomain String
+  action     String
+  timestamp  DateTime @default(now())
+  metadata   Json?
+
   @@index([shopDomain, timestamp])
 }
 
-// Widget customization settings
 model WidgetSettings {
-  id                    Int       @id @default(autoincrement())
-  shopDomain           String    @unique
-  
-  // Appearance Settings
-  primaryColor         String    @default("#007bff")
-  secondaryColor       String    @default("#0056b3")
-  buttonSize           String    @default("60px")
-  position             String    @default("bottom-right") // bottom-right, bottom-left, top-right, top-left
-  buttonIcon           String    @default("💬")
-  
-  // Chat Window Settings
-  windowWidth          String    @default("320px")
-  windowHeight         String    @default("420px")
-  headerText           String    @default("Jarvis AI Chatbot")
-  placeholderText      String    @default("Type your message...")
-  
-  // Behavior Settings
-  welcomeMessage       String    @default("Hello! How can I assist you today?")
-  showTypingIndicator  Boolean   @default(true)
-  enableSounds         Boolean   @default(false)
-  autoOpen             Boolean   @default(false)
-  
-  // Advanced Settings
-  customCSS            String?
-  isEnabled            Boolean   @default(true)
-  
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  
+  id                  Int      @id @default(autoincrement())
+  shopDomain          String   @unique
+  primaryColor        String   @default("#007bff")
+  secondaryColor      String   @default("#0056b3")
+  buttonSize          String   @default("60px")
+  position            String   @default("bottom-right")
+  buttonIcon          String   @default("💬")
+  windowWidth         String   @default("320px")
+  windowHeight        String   @default("420px")
+  headerText          String   @default("Jarvis AI Chatbot")
+  placeholderText     String   @default("Type your message...")
+  welcomeMessage      String   @default("Hello! How can I assist you today?")
+  showTypingIndicator Boolean  @default(true)
+  enableSounds        Boolean  @default(false)
+  autoOpen            Boolean  @default(false)
+  customCSS           String?
+  isEnabled           Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
   @@index([shopDomain])
 }
 
-// Billing and Subscription Models
 model Plan {
-  id            String        @id @default(cuid())
-  name          String        @unique
+  id            String         @id @default(cuid())
+  name          String         @unique
   price         Decimal
-  billingCycle  String        // 'MONTHLY', 'YEARLY'
+  billingCycle  String
   messagesLimit Int
-  features      Json          // Array of features
-  isActive      Boolean       @default(true)
-  
+  features      Json
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   subscriptions Subscription[]
-  
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
 }
 
 model Subscription {
-  id                String    @id @default(cuid())
-  shopDomain        String    @unique
-  planId            String
-  status            String    // 'ACTIVE', 'CANCELLED', 'TRIAL', 'PENDING'
-  billingCycle      String    // 'MONTHLY', 'YEARLY'
+  id                 String    @id @default(cuid())
+  shopDomain         String    @unique
+  planId             String
+  status             String
+  billingCycle       String
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
-  trialEndsAt       DateTime?
-  cancelledAt       DateTime?
-  
-  // Shopify billing details
-  shopifyChargeId   String?   @unique
-  shopifyPlanId     String?
-  confirmationUrl   String?
-  
-  // Usage tracking
-  messagesUsed      Int       @default(0)
-  messagesLimit     Int       @default(1000)
-  
-  plan              Plan      @relation(fields: [planId], references: [id])
-  shop              Shop      @relation(fields: [shopDomain], references: [shopDomain])
-  payments          Payment[]
-  
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
+  trialEndsAt        DateTime?
+  cancelledAt        DateTime?
+  shopifyChargeId    String?   @unique
+  shopifyPlanId      String?
+  confirmationUrl    String?
+  messagesUsed       Int       @default(0)
+  messagesLimit      Int       @default(1000)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  payments           Payment[]
+  plan               Plan      @relation(fields: [planId], references: [id])
+  shop               Shop      @relation(fields: [shopDomain], references: [shopDomain])
+
   @@index([shopDomain, status])
 }
 
 model Payment {
-  id              String       @id @default(cuid())
-  subscriptionId  String
-  amount          Decimal
-  currency        String       @default("USD")
-  status          String       // 'PENDING', 'PAID', 'FAILED', 'REFUNDED'
-  paymentMethod   String       // 'SHOPIFY', 'STRIPE', 'PAYPAL'
-  transactionId   String?      @unique
-  
-  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
-  
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  
+  id             String       @id @default(cuid())
+  subscriptionId String
+  amount         Decimal
+  currency       String       @default("USD")
+  status         String
+  paymentMethod  String
+  transactionId  String?      @unique
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
   @@index([subscriptionId, status])
 }
