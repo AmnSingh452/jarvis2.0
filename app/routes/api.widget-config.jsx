@@ -18,10 +18,12 @@ export async function loader({ request }) {
       success: true,
       app_base_url: appBaseUrl,
       api_endpoints: {
-        recommendations: `${appBaseUrl}/api/recommendations`,
-        abandoned_cart: `${appBaseUrl}/api/abandoned-cart-discount`,
+        chat: `${appBaseUrl}/api/chat`,
+        abandoned_cart_discount: `${appBaseUrl}/api/abandoned-cart-discount`,
         widget_settings: `${appBaseUrl}/api/widget-settings`,
-        shop_verify: `${appBaseUrl}/api/shop-verify`
+        shop_verify: `${appBaseUrl}/api/shop-verify`,
+        session: `${appBaseUrl}/api/session`,
+        customer_update: `${appBaseUrl}/api/customer/update`
       },
       shop: shop,
       timestamp: new Date().toISOString()

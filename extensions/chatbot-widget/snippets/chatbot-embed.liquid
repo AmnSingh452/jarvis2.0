@@ -1,18 +1,33 @@
 <div id="chatbot-widget"></div>
 <script>
-  // Pass shop domain to the chatbot widget - automatically fetched for any store
+  // Pass shop domain and configuration to the chatbot widget - automatically fetched for any store
   window.SHOPIFY_CHATBOT_CONFIG = {
     shop_domain: "{{ shop.permanent_domain }}",
     shop_name: "{{ shop.name }}",
     shop_id: {{ shop.id }},
     shop_currency: "{{ shop.currency }}",
     shop_timezone: "{{ shop.timezone }}",
-    // Widget will fetch app configuration automatically
-    config_endpoint: "https://{{ shop.permanent_domain }}/apps/jarvis2-0/api/widget-config?shop={{ shop.permanent_domain }}"
+    // Remix app configuration endpoint for dynamic API URLs
+    config_endpoint: "https://jarvis2-0-djg1.onrender.com/api/widget-config?shop={{ shop.permanent_domain }}",
+    // Fallback API endpoints (will be replaced by dynamic config from Remix app)
+    api_endpoints: {
+      chat: "https://jarvis2-0-djg1.onrender.com/api/chat",
+      abandoned_cart_discount: "https://jarvis2-0-djg1.onrender.com/api/abandoned-cart-discount",
+      session: "https://jarvis2-0-djg1.onrender.com/api/session",
+      customer_update: "https://jarvis2-0-djg1.onrender.com/api/customer/update"
+    }
   };
+  
+  // Set global shop domain for backward compatibility
+  window.SHOP_DOMAIN = "{{ shop.permanent_domain }}";
+  
+  // Shopify object for additional compatibility
+  window.Shopify = window.Shopify || {};
+  window.Shopify.shop = "{{ shop.permanent_domain }}";
   
   // Debug: Log the configuration for troubleshooting
   console.log('🤖 Chatbot Config:', window.SHOPIFY_CHATBOT_CONFIG);
+  console.log('🏪 Shop Domain:', window.SHOP_DOMAIN);
 </script>
 <script src="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.js"></script>
 <link rel="stylesheet" href="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.css"> 
