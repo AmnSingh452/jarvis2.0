@@ -34,7 +34,7 @@ api_version = "2025-07"
 scopes = "write_products,read_customers,write_payment_terms,read_products,read_orders,read_discounts,write_discounts,read_product_listings,read_fulfillments"
 
 [auth]
-redirect_urls = ["https://jarvis2-0-djg1.onrender.com/auth/callback", "https://jarvis2-0-djg1.onrender.com/auth/shopify/callback", "https://jarvis2-0-djg1.onrender.com/api/auth/callback"]
+redirect_urls = ["https://jarvis2-0-djg1.onrender.com/auth/callback", "https://jarvis2-0-djg1.onrender.com/api/auth/callback"]
 
 [pos]
 embedded = false

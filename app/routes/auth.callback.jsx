@@ -3,6 +3,8 @@ import db from "../db.server";
 
 export const loader = async ({ request }) => {
   console.log("🔐 Authentication callback initiated");
+  console.log("📍 Request URL:", request.url);
+  console.log("📍 Request method:", request.method);
   
   try {
     console.log(`trying to fetch session`);
@@ -48,13 +50,32 @@ export const loader = async ({ request }) => {
         
         console.log(`📝 Installation logged for: ${session.shop}`);
         
+        // Redirect to main app after successful authentication
+        console.log("🔄 Redirecting to main app...");
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: `/app`
+          }
+        });
+        
       } catch (dbError) {
         console.error("session is invalid");
         console.error("❌ Database error during shop setup:", dbError);
         // Don't fail the auth process, but log the error
+        // Still redirect to app even if DB operations fail
+        console.log("🔄 Redirecting to main app despite DB error...");
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: `/app`
+          }
+        });
       }
     }
     
+    // If no session, something went wrong
+    console.log("❌ No session found after authentication");
     return null;
   } catch (error) {
     console.error("❌ Authentication callback error:", error);
