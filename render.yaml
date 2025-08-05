@@ -4,6 +4,24 @@ services:
     env: node
     buildCommand: npm install && npm run build
     startCommand: npm start
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SHOPIFY_API_KEY
+        sync: false
+      - key: SHOPIFY_API_SECRET
+        sync: false
+      - key: SCOPES
+        value: write_products,read_customers,write_payment_terms,read_products,read_orders,read_discounts,write_discounts,read_product_listings,read_fulfillments
+      - key: HOST
+        sync: false
+      - key: DATABASE_URL
+        sync: false: web
+    name: jarvis2-0
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
