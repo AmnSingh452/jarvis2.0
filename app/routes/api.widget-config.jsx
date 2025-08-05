@@ -19,6 +19,7 @@ export async function loader({ request }) {
       app_base_url: appBaseUrl,
       api_endpoints: {
         chat: `${appBaseUrl}/api/chat`,
+        recommendations: `${appBaseUrl}/api/recommendations`,
         abandoned_cart_discount: `${appBaseUrl}/api/abandoned-cart-discount`,
         widget_settings: `${appBaseUrl}/api/widget-settings`,
         shop_verify: `${appBaseUrl}/api/shop-verify`,

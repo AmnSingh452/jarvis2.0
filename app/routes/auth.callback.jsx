@@ -5,7 +5,9 @@ export const loader = async ({ request }) => {
   console.log("🔐 Authentication callback initiated");
   
   try {
+    console.log(`trying to fetch session`);
     const { session } = await authenticate.admin(request);
+    console.log(`session:`, session);
     
     if (session) {
       console.log(`✅ Authentication successful for shop: ${session.shop}`);
@@ -47,6 +49,7 @@ export const loader = async ({ request }) => {
         console.log(`📝 Installation logged for: ${session.shop}`);
         
       } catch (dbError) {
+        console.error("session is invalid");
         console.error("❌ Database error during shop setup:", dbError);
         // Don't fail the auth process, but log the error
       }
