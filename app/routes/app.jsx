@@ -8,9 +8,21 @@ import { authenticate } from "../shopify.server";
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  console.log("🏠 Main app route accessed");
+  
+  try {
+    const { session } = await authenticate.admin(request);
+    console.log(`📍 App route session:`, {
+      shop: session?.shop,
+      hasToken: !!session?.accessToken,
+      scopes: session?.scope
+    });
+    
+    return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  } catch (error) {
+    console.log("❌ App route authentication failed:", error.message);
+    throw error;
+  }
 };
 
 export default function App() {

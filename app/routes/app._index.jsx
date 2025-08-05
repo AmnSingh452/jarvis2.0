@@ -17,12 +17,25 @@ import { authenticate } from "../shopify.server";
 import { redirect } from "@remix-run/node";
 
 export const loader = async ({ request }) => {
+  console.log("🏠 App index route accessed");
+  
   const { session } = await authenticate.admin(request);
+  console.log(`📍 App index session:`, {
+    shop: session?.shop,
+    hasToken: !!session?.accessToken,
+    scopes: session?.scope
+  });
   
   // Check if this is a fresh installation
   try {
     const { verifyFreshInstallation } = await import("../../cleanup-db.js");
     const verification = await verifyFreshInstallation(session.shop);
+    
+    console.log(`🔍 Fresh installation check:`, {
+      shop: session.shop,
+      isFreshInstall: verification.isFreshInstall,
+      hasValidToken: verification.hasValidToken
+    });
     
     // If it's a fresh install and user hasn't seen welcome page, redirect
     const url = new URL(request.url);
