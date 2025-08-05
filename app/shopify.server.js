@@ -20,6 +20,7 @@ const shopify = shopifyApp({
     unstable_newEmbeddedAuthStrategy: true,
     removeRest: true,
   },
+  useOnlineTokens: false, // Use offline tokens for better persistence
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),

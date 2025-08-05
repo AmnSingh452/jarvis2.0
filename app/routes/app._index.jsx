@@ -33,15 +33,64 @@ export const loader = async ({ request }) => {
     
     console.log(`🔍 Fresh installation check:`, {
       shop: session.shop,
-      isFreshInstall: verification.isFreshInstall,
-      hasValidToken: verification.hasValidToken
+      isFreshInstall: verification.isFresh,
+      oldSessions: verification.oldSessions,
+      oldShops: verification.oldShops
     });
+
+    // If we have a session but no shop record, this means 
+    // the callback didn't run properly - let's save the shop data now
+    if (verification.oldSessions > 0 && verification.oldShops === 0) {
+      console.log("🔧 Fixing missing shop data - callback didn't run properly");
+      
+      try {
+        const db = await import("../db.server");
+        
+        await db.default.shop.upsert({
+          where: { shopDomain: session.shop },
+          update: {
+            accessToken: session.accessToken,
+            isActive: true,
+            tokenVersion: { increment: 1 },
+            uninstalledAt: null
+          },
+          create: {
+            shopDomain: session.shop,
+            accessToken: session.accessToken,
+            installedAt: new Date(),
+            isActive: true,
+            tokenVersion: 1
+          }
+        });
+        
+        console.log(`💾 Shop data saved/updated for: ${session.shop}`);
+        
+        // Log installation event
+        await db.default.installationLog.create({
+          data: {
+            shopDomain: session.shop,
+            action: "INSTALLED_VIA_APP_ROUTE",
+            metadata: {
+              tokenVersion: 1,
+              scopes: session.scope,
+              timestamp: new Date().toISOString(),
+              note: "Shop data saved from app route since callback wasn't triggered"
+            }
+          }
+        });
+        
+        console.log(`📝 Installation logged for: ${session.shop} (via app route)`);
+        
+      } catch (dbError) {
+        console.error("❌ Error saving shop data in app route:", dbError);
+      }
+    }
     
     // If it's a fresh install and user hasn't seen welcome page, redirect
     const url = new URL(request.url);
     const hasSeenWelcome = url.searchParams.get("welcomed") === "true";
     
-    if (verification.isFreshInstall && !hasSeenWelcome) {
+    if (verification.isFresh && !hasSeenWelcome) {
       return redirect("/app/welcome");
     }
   } catch (error) {
