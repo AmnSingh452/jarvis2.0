@@ -33,7 +33,6 @@ model Shop {
   accessToken   String
   installedAt   DateTime      @default(now())
   uninstalledAt DateTime?
-  lastRefresh   DateTime?
   isActive      Boolean       @default(true)
   tokenVersion  Int           @default(1)
   subscription  Subscription?

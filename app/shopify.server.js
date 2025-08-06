@@ -17,7 +17,8 @@ const shopify = shopifyApp({
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
   future: {
-    unstable_newEmbeddedAuthStrategy: true,
+    // Temporarily disable this to ensure callback routes work
+    // unstable_newEmbeddedAuthStrategy: true,
     removeRest: true,
   },
   useOnlineTokens: false, // Use offline tokens for better persistence

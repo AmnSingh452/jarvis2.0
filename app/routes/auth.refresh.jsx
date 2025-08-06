@@ -20,16 +20,14 @@ export const loader = async ({ request }) => {
             accessToken: session.accessToken,
             isActive: true,
             tokenVersion: { increment: 1 },
-            uninstalledAt: null,
-            lastRefresh: new Date()
+            uninstalledAt: null
           },
           create: {
             shopDomain: session.shop,
             accessToken: session.accessToken,
             installedAt: new Date(),
             isActive: true,
-            tokenVersion: 1,
-            lastRefresh: new Date()
+            tokenVersion: 1
           }
         });
         
