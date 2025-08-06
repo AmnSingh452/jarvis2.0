@@ -29,10 +29,13 @@ export const loader = async ({ request }) => {
       case "sessions":
         return await getSessionInfo(shop);
         
+      case "simulate-uninstall":
+        return await simulateUninstall(shop);
+        
       default:
         return json({
           error: "Invalid action",
-          availableActions: ["status", "clear", "verify", "sessions"]
+          availableActions: ["status", "clear", "verify", "sessions", "simulate-uninstall"]
         }, { status: 400 });
     }
   } catch (error) {
@@ -234,6 +237,98 @@ async function getSessionInfo(shop) {
       userId: s.userId
     }))
   });
+}
+
+async function simulateUninstall(shop) {
+  console.log(`🧪 Simulating uninstall webhook for: ${shop}`);
+  
+  try {
+    // Import the cleanup service that's used in the actual webhook
+    const { TokenCleanupService } = await import("../../enhanced-token-cleanup.js");
+    const cleanupService = new TokenCleanupService();
+    
+    console.log(`🧹 Processing simulated uninstallation cleanup for shop: ${shop}`);
+    
+    const result = await cleanupService.cleanupOnUninstall(shop);
+    
+    console.log(`✅ Simulated cleanup completed for ${shop}:`, result);
+    
+    // Log the simulated uninstall
+    await db.installationLog.create({
+      data: {
+        shopDomain: shop,
+        action: "SIMULATED_UNINSTALL",
+        metadata: {
+          timestamp: new Date().toISOString(),
+          method: "manual simulation",
+          cleanupResult: result,
+          reason: "Testing uninstall flow - webhook not triggered"
+        }
+      }
+    });
+    
+    return json({
+      success: true,
+      shop,
+      message: `Simulated uninstall completed for ${shop}`,
+      cleanupResult: result,
+      note: "This simulates what should happen when the webhook is triggered"
+    });
+    
+  } catch (error) {
+    console.error(`❌ Simulated uninstall error for ${shop}:`, error);
+    
+    // Fallback to basic cleanup
+    try {
+      console.log(`🔄 Attempting fallback cleanup for ${shop}`);
+      
+      const deletedSessions = await db.session.deleteMany({ 
+        where: { shop } 
+      });
+      
+      const updatedShop = await db.shop.updateMany({
+        where: { shopDomain: shop },
+        data: { 
+          isActive: false,
+          uninstalledAt: new Date(),
+          accessToken: null,
+          tokenVersion: { increment: 1 }
+        }
+      });
+      
+      await db.installationLog.create({
+        data: {
+          shopDomain: shop,
+          action: "SIMULATED_UNINSTALL_FALLBACK",
+          metadata: {
+            timestamp: new Date().toISOString(),
+            deletedSessions: deletedSessions.count,
+            updatedShops: updatedShop.count,
+            error: error.message
+          }
+        }
+      });
+      
+      console.log(`✅ Fallback cleanup completed - Sessions: ${deletedSessions.count}, Shops: ${updatedShop.count}`);
+      
+      return json({
+        success: true,
+        shop,
+        message: "Simulated uninstall completed with fallback method",
+        fallbackResult: {
+          deletedSessions: deletedSessions.count,
+          updatedShops: updatedShop.count
+        },
+        error: error.message
+      });
+      
+    } catch (fallbackError) {
+      console.error(`❌ Fallback cleanup also failed for ${shop}:`, fallbackError);
+      return json({ 
+        error: `Both cleanup methods failed: ${error.message}, ${fallbackError.message}` 
+      }, { status: 500 });
+    }
+  }
 }
 
 function getNextSteps(shopRecord, sessions) {
