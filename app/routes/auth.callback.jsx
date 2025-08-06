@@ -2,12 +2,10 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
 export const loader = async ({ request }) => {
-  console.log("🔐 Authentication callback initiated");
+  console.log("🔐 Traditional OAuth callback (non-embedded apps only)");
   console.log("📍 Request URL:", request.url);
-  console.log("📍 Request method:", request.method);
   
   try {
-    console.log(`trying to fetch session`);
     const { session } = await authenticate.admin(request);
     console.log(`session:`, session);
     
@@ -39,16 +37,17 @@ export const loader = async ({ request }) => {
         await db.installationLog.create({
           data: {
             shopDomain: session.shop,
-            action: "INSTALLED",
+            action: "TRADITIONAL_OAUTH_INSTALL",
             metadata: {
               tokenVersion: 1,
               scopes: session.scope,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              method: "Traditional OAuth Callback (Non-embedded)"
             }
           }
         });
         
-        console.log(`📝 Installation logged for: ${session.shop}`);
+        console.log(`📝 Traditional OAuth installation logged for: ${session.shop}`);
         
         // Redirect to main app after successful authentication
         console.log("🔄 Redirecting to main app...");

@@ -38,21 +38,36 @@ export const loader = async ({ request }) => {
       oldShops: verification.oldShops
     });
 
-    // If we have a session but no shop record, this means 
-    // the callback didn't run properly - let's save the shop data now
-    if (verification.oldSessions > 0 && verification.oldShops === 0) {
-      console.log("🔧 Fixing missing shop data - callback didn't run properly");
-      
+    // PRODUCTION-READY: Use session data to maintain shop records
+    // This handles multiple clients and reinstallation scenarios
+    if (session && session.accessToken) {
       try {
         const db = await import("../db.server");
         
-        await db.default.shop.upsert({
+        // Check if shop exists and its status
+        const existingShop = await db.default.shop.findUnique({
+          where: { shopDomain: session.shop }
+        });
+        
+        let isNewInstallation = false;
+        let isReinstallation = false;
+        
+        if (!existingShop) {
+          // Completely new shop
+          isNewInstallation = true;
+        } else if (!existingShop.isActive || existingShop.uninstalledAt) {
+          // Shop exists but was uninstalled - this is a reinstallation
+          isReinstallation = true;
+        }
+        
+        // Always ensure shop data is current with latest session info
+        const shopData = await db.default.shop.upsert({
           where: { shopDomain: session.shop },
           update: {
             accessToken: session.accessToken,
             isActive: true,
-            tokenVersion: { increment: 1 },
-            uninstalledAt: null
+            uninstalledAt: null, // Clear uninstall timestamp
+            tokenVersion: isReinstallation ? { increment: 1 } : undefined
           },
           create: {
             shopDomain: session.shop,
@@ -63,26 +78,54 @@ export const loader = async ({ request }) => {
           }
         });
         
-        console.log(`💾 Shop data saved/updated for: ${session.shop}`);
-        
-        // Log installation event
-        await db.default.installationLog.create({
-          data: {
-            shopDomain: session.shop,
-            action: "INSTALLED_VIA_APP_ROUTE",
-            metadata: {
-              tokenVersion: 1,
-              scopes: session.scope,
-              timestamp: new Date().toISOString(),
-              note: "Shop data saved from app route since callback wasn't triggered"
+        // Log based on scenario
+        if (isNewInstallation) {
+          console.log(`💾 NEW INSTALLATION: ${session.shop} (ID: ${shopData.id})`);
+          
+          await db.default.installationLog.create({
+            data: {
+              shopDomain: session.shop,
+              action: "SHOP_INSTALLED",
+              metadata: {
+                shopId: shopData.id,
+                tokenVersion: shopData.tokenVersion,
+                scopes: session.scope,
+                sessionId: session.id,
+                timestamp: new Date().toISOString(),
+                clientType: "new"
+              }
             }
-          }
-        });
-        
-        console.log(`📝 Installation logged for: ${session.shop} (via app route)`);
+          });
+          
+        } else if (isReinstallation) {
+          console.log(`🔄 REINSTALLATION: ${session.shop} (ID: ${shopData.id}, Version: ${shopData.tokenVersion})`);
+          
+          await db.default.installationLog.create({
+            data: {
+              shopDomain: session.shop,
+              action: "SHOP_REINSTALLED",
+              metadata: {
+                shopId: shopData.id,
+                tokenVersion: shopData.tokenVersion,
+                scopes: session.scope,
+                sessionId: session.id,
+                timestamp: new Date().toISOString(),
+                previouslyUninstalledAt: existingShop?.uninstalledAt?.toISOString(),
+                clientType: "returning"
+              }
+            }
+          });
+          
+        } else {
+          // Existing active shop - just ensure token is fresh
+          console.log(`✅ ACTIVE CLIENT: ${session.shop} - token refreshed`);
+        }
         
       } catch (dbError) {
-        console.error("❌ Error saving shop data in app route:", dbError);
+        console.error("❌ Database error during shop data sync:", dbError);
+        console.error("   Shop:", session.shop);
+        console.error("   Session ID:", session.id);
+        // Log but don't fail the app
       }
     }
     

@@ -35,9 +35,7 @@ scopes = "write_products,read_customers,write_payment_terms,read_products,read_o
 
 [auth]
 redirect_urls = [
-  "https://jarvis2-0-djg1.onrender.com/auth/callback", 
-  "https://jarvis2-0-djg1.onrender.com/auth/refresh",
-  "https://jarvis2-0-djg1.onrender.com/api/auth/callback"
+  "https://jarvis2-0-djg1.onrender.com/auth/callback"
 ]
 
 [pos]

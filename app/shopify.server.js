@@ -17,11 +17,12 @@ const shopify = shopifyApp({
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
   future: {
-    // Temporarily disable this to ensure callback routes work
-    // unstable_newEmbeddedAuthStrategy: true,
+    unstable_newEmbeddedAuthStrategy: true, // This is the correct approach for embedded apps
     removeRest: true,
   },
-  useOnlineTokens: false, // Use offline tokens for better persistence
+  useOnlineTokens: false,
+  // Add embedded app configuration
+  isEmbeddedApp: true,
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
