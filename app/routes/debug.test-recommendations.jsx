@@ -15,6 +15,16 @@ export async function loader() {
 }
 
 export default function TestRecommendations() {
+  const buttonStyle = {
+    margin: "5px",
+    padding: "10px 15px",
+    backgroundColor: "#007bff",
+    color: "white",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer"
+  };
+
   return (
     <div style={{ padding: "20px", fontFamily: "monospace" }}>
       <h1>🔍 Recommendations API Testing</h1>
@@ -46,16 +56,6 @@ export default function TestRecommendations() {
       </div>
 
       <script dangerouslySetInnerHTML={{__html: `
-        const buttonStyle = {
-          margin: "5px",
-          padding: "10px 15px",
-          backgroundColor: "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer"
-        };
-
         function log(message) {
           const results = document.getElementById('test-results');
           results.textContent += new Date().toISOString() + ': ' + message + '\\n';
