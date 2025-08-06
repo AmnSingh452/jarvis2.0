@@ -30,7 +30,7 @@ model Session {
 model Shop {
   id            Int           @id @default(autoincrement())
   shopDomain    String        @unique
-  accessToken   String
+  accessToken   String?
   installedAt   DateTime      @default(now())
   uninstalledAt DateTime?
   isActive      Boolean       @default(true)
