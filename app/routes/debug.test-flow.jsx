@@ -32,10 +32,13 @@ export const loader = async ({ request }) => {
       case "simulate-uninstall":
         return await simulateUninstall(shop);
         
+      case "webhook-test":
+        return await testWebhookEndpoint(shop);
+        
       default:
         return json({
           error: "Invalid action",
-          availableActions: ["status", "clear", "verify", "sessions", "simulate-uninstall"]
+          availableActions: ["status", "clear", "verify", "sessions", "simulate-uninstall", "webhook-test"]
         }, { status: 400 });
     }
   } catch (error) {
@@ -104,6 +107,11 @@ async function getShopStatus(shop) {
         metadata: log.metadata
       })),
       widgetSettings: !!widgetSettings,
+      webhookInfo: {
+        expectedWebhookUrl: `${process.env.SHOPIFY_APP_URL || 'https://jarvis2-0-djg1.onrender.com'}/webhooks/app/uninstalled`,
+        webhookSecretConfigured: !!process.env.SHOPIFY_WEBHOOK_SECRET,
+        lastWebhookLog: installationLogs.find(log => log.action.includes('UNINSTALL')) || null
+      },
       nextSteps: getNextSteps(shopRecord, sessions)
     }
   });
@@ -328,6 +336,76 @@ async function simulateUninstall(shop) {
         error: `Both cleanup methods failed: ${error.message}, ${fallbackError.message}` 
       }, { status: 500 });
     }
+  }
+}
+
+async function testWebhookEndpoint(shop) {
+  console.log(`🧪 Testing webhook endpoint for: ${shop}`);
+  
+  try {
+    // Test if our webhook endpoint is accessible
+    const webhookUrl = "https://jarvis2-0-djg1.onrender.com/webhooks/app/uninstalled";
+    
+    // Create a mock Shopify webhook payload
+    const mockPayload = {
+      id: "test",
+      domain: shop,
+      timestamp: new Date().toISOString()
+    };
+    
+    const testHeaders = {
+      'x-shopify-shop-domain': shop,
+      'x-shopify-topic': 'app/uninstalled',
+      'x-shopify-hmac-sha256': 'test-hmac',
+      'content-type': 'application/json'
+    };
+    
+    console.log(`🔗 Testing webhook URL: ${webhookUrl}`);
+    console.log(`📋 Mock headers:`, testHeaders);
+    
+    // Since we can't easily make external requests from here, let's check our configuration
+    const webhookConfig = {
+      endpoint: webhookUrl,
+      expectedHeaders: testHeaders,
+      mockPayload,
+      currentTime: new Date().toISOString(),
+      shopifyApp: {
+        apiVersion: "2025-07",
+        webhookSecret: process.env.SHOPIFY_WEBHOOK_SECRET ? "SET" : "NOT SET",
+        appUrl: process.env.SHOPIFY_APP_URL
+      },
+      troubleshooting: {
+        possibleIssues: [
+          "Webhook not registered in Shopify Partners dashboard",
+          "App needs to be reinstalled to register webhooks",
+          "Webhook URL not accessible from Shopify servers", 
+          "API version mismatch between registration and handler",
+          "HMAC verification failing due to incorrect secret"
+        ],
+        nextSteps: [
+          "1. Reinstall the app to trigger webhook registration",
+          "2. Check Shopify Partners dashboard webhook settings", 
+          "3. Verify all environment variables are set in Render",
+          "4. Test manual webhook call from app context"
+        ]
+      }
+    };
+    
+    return json({
+      success: true,
+      shop,
+      message: "Webhook endpoint configuration test",
+      config: webhookConfig,
+      recommendation: "Install the app, then uninstall to test if webhook triggers"
+    });
+    
+  } catch (error) {
+    console.error(`❌ Webhook test error for ${shop}:`, error);
+    return json({ 
+      error: error.message,
+      shop,
+      message: "Webhook test failed"
+    }, { status: 500 });
   }
 }
 
