@@ -108,68 +108,60 @@ export async function action({ request }) {
         });
       }
     } else if (response.status === 429) {
-      console.log("⚠️ Rate limited after retries, using smart fallback");
+      console.log("⚠️ Rate limited after retries, returning error");
       
-      // Parse request body for fallback context
-      let shop_domain = "default";
-      let product_ids = [];
-      
-      if (body) {
-        try {
-          const parsed = JSON.parse(body);
-          shop_domain = parsed.shop_domain || "default";
-          product_ids = parsed.product_ids || [];
-        } catch (e) {
-          console.log("⚠️ Could not parse request body for fallback");
-        }
-      }
-      
-      // Use smart fallback recommendation system (no auth needed)
-      const fallbackData = await getFallbackRecommendations(shop_domain, null, product_ids);
-      
-      // Cache the fallback response for 2 minutes (shorter than normal cache)
-      recommendationsCache.set(cacheKey, {
-        data: JSON.stringify(fallbackData),
-        timestamp: now
-      });
-      
-      return new Response(JSON.stringify(fallbackData), {
-        status: 200, // Return 200 with fallback data
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Service temporarily unavailable due to rate limiting",
+        recommendations: [],
+        timestamp: new Date().toISOString()
+      }), {
+        status: 503,
         headers: {
           ...corsHeaders,
           "Content-Type": "application/json",
-          "X-Cache": "SMART_FALLBACK"
+          "X-Cache": "RATE_LIMITED"
+        }
+      });
+    } else {
+      console.log(`⚠️ External API returned ${response.status}, returning error`);
+      
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Recommendations service unavailable",
+        recommendations: [],
+        timestamp: new Date().toISOString()
+      }), {
+        status: response.status,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
         }
       });
     }
+    
+    return new Response(responseData, {
+      status: response.status,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": response.headers.get("content-type") || "application/json",
+        "X-Cache": "MISS"
+      }
+    });
 
   } catch (error) {
     console.error("❌ Critical error in recommendations API:", error);
     
-    // Parse request body for fallback context
-    let shop_domain = "default";
-    let product_ids = [];
-    
-    try {
-      const body = await request.text();
-      if (body) {
-        const parsed = JSON.parse(body);
-        shop_domain = parsed.shop_domain || "default";
-        product_ids = parsed.product_ids || [];
-      }
-    } catch (e) {
-      console.log("⚠️ Could not parse request body during error recovery");
-    }
-    
-    // Use smart fallback recommendation system (no auth needed)
-    const fallbackData = await getFallbackRecommendations(shop_domain, null, product_ids);
-    
-    return new Response(JSON.stringify(fallbackData), {
-      status: 200, // Always return 200 with fallback data
+    return new Response(JSON.stringify({
+      success: false,
+      error: "Recommendations service unavailable",
+      recommendations: [],
+      timestamp: new Date().toISOString()
+    }), {
+      status: 500,
       headers: {
         ...corsHeaders,
-        "Content-Type": "application/json",
-        "X-Cache": "ERROR_FALLBACK"
+        "Content-Type": "application/json"
       }
     });
   }
