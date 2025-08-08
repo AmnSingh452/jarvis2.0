@@ -1,7 +1,7 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { TokenCleanupService } from "../../enhanced-token-cleanup.js";
-import crypto from "crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 // Add immediate logging to see if this file is even being loaded
 console.log(`🔔 webhooks.app.uninstalled.jsx file loaded at ${new Date().toISOString()}`);
@@ -14,7 +14,7 @@ function verifyWebhookSignature(body, signature, secret) {
   }
 
   try {
-    const hmac = crypto.createHmac('sha256', secret);
+    const hmac = createHmac('sha256', secret);
     hmac.update(body, 'utf8');
     const calculatedSignature = hmac.digest('base64');
     
@@ -27,7 +27,7 @@ function verifyWebhookSignature(body, signature, secret) {
       return false;
     }
     
-    const isValid = crypto.timingSafeEqual(providedSignature, calculatedBuffer);
+    const isValid = timingSafeEqual(providedSignature, calculatedBuffer);
     console.log(`🔐 HMAC verification: ${isValid ? 'VALID' : 'INVALID'}`);
     return isValid;
     

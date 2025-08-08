@@ -1,6 +1,6 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import crypto from "crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 console.log(`🔔 customers.redact.jsx loaded at ${new Date().toISOString()}`);
 
@@ -8,13 +8,13 @@ console.log(`🔔 customers.redact.jsx loaded at ${new Date().toISOString()}`);
 function verifyWebhookSignature(body, signature, secret) {
   if (!signature || !secret) return false;
   try {
-    const hmac = crypto.createHmac('sha256', secret);
+    const hmac = createHmac('sha256', secret);
     hmac.update(body, 'utf8');
     const calculatedSignature = hmac.digest('base64');
     const providedSignature = Buffer.from(signature, 'base64');
     const calculatedBuffer = Buffer.from(calculatedSignature, 'base64');
     return providedSignature.length === calculatedBuffer.length && 
-           crypto.timingSafeEqual(providedSignature, calculatedBuffer);
+           timingSafeEqual(providedSignature, calculatedBuffer);
   } catch (error) {
     console.error("❌ HMAC verification error:", error);
     return false;
