@@ -210,7 +210,7 @@ export default function Billing() {
                 loading={isLoading}
                 disabled={isLoading || hasActiveSubscription}
               >
-                {hasActiveSubscription ? "Upgrade to This Plan" : "Subscribe Now"}
+                {hasActiveSubscription ? "Switch to This Plan" : "Subscribe Now"}
               </Button>
             )}
           </Box>

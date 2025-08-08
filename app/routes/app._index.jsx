@@ -270,7 +270,7 @@ export default function Index() {
                           💳 Billing & Plans
                         </Text>
                         <Text variant="bodyMd" as="p">
-                          Manage your subscription, view usage analytics, and upgrade your plan for more features.
+                          Manage your subscription, view usage analytics, and configure your plan settings.
                         </Text>
                         <InlineStack gap="200">
                           <Button 

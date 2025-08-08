@@ -52,7 +52,6 @@ export const action = async ({ request }) => {
   // Import server-only modules inside the action function
   const { authenticate } = await import("../shopify.server");
   const db = (await import("../db.server")).default;
-  const { TokenCleanupService } = await import("../../enhanced-token-cleanup.js");
   
   const timestamp = new Date().toISOString();
   console.log(`\n🔔 ===== APP UNINSTALLED WEBHOOK ===== ${timestamp}`);
@@ -137,7 +136,7 @@ export const action = async ({ request }) => {
   try {
     const { shop, session, topic } = await authenticate.webhook(request);
     console.log(`✅ Shopify authentication successful for shop: ${shop}, topic: ${topic}`);
-    return await processUninstall(shop);
+    return await processUninstall(shop, db);
 
   } catch (authError) {
     console.error(`❌ Shopify authentication failed:`, authError.message);
@@ -145,13 +144,13 @@ export const action = async ({ request }) => {
     // If HMAC is valid and we have shop info, proceed with cleanup
     if (hmacValid && shopHeader && topicHeader === 'app/uninstalled') {
       console.log(`🔄 Using HMAC-verified fallback for shop: ${shopHeader}`);
-      return await processUninstall(shopHeader);
+      return await processUninstall(shopHeader, db);
     }
     
     // If we have shop info but no HMAC (dev environment), allow fallback
     if (shopHeader && topicHeader === 'app/uninstalled' && !hmacHeader) {
       console.log(`🔄 Development fallback for shop: ${shopHeader} (no HMAC required)`);
-      return await processUninstall(shopHeader);
+      return await processUninstall(shopHeader, db);
     }
     
     console.error(`❌ Authentication failed and no valid fallback available`);
@@ -159,17 +158,47 @@ export const action = async ({ request }) => {
   }
 };
 
-async function processUninstall(shop) {
+async function processUninstall(shop, db) {
   console.log(`\n🧹 ===== STARTING UNINSTALL PROCESS FOR ${shop} =====`);
   
   try {
-    console.log(`🧹 Processing enhanced uninstallation cleanup for shop: ${shop}`);
+    console.log(`🧹 Processing standard uninstallation cleanup for shop: ${shop}`);
     
-    // Use enhanced cleanup service
-    const cleanupService = new TokenCleanupService();
-    const result = await cleanupService.cleanupOnUninstall(shop);
+    // Basic cleanup with proper error handling
+    console.log(`🔄 Step 1: Deleting sessions for ${shop}`);
+    const deletedSessions = await db.session.deleteMany({ 
+      where: { shop } 
+    });
+    console.log(`✅ Deleted ${deletedSessions.count} sessions`);
     
-    console.log(`✅ Enhanced cleanup completed for ${shop}:`, result);
+    console.log(`🔄 Step 2: Updating shop record for ${shop}`);
+    const updatedShop = await db.shop.updateMany({
+      where: { shopDomain: shop },
+      data: { 
+        isActive: false,
+        uninstalledAt: new Date(),
+        accessToken: null
+      }
+    });
+    console.log(`✅ Updated ${updatedShop.count} shop records`);
+    
+    console.log(`🔄 Step 3: Cleaning up widgets for ${shop}`);
+    const deletedWidgets = await db.widgetSetting.deleteMany({
+      where: { shopDomain: shop }
+    });
+    console.log(`✅ Deleted ${deletedWidgets.count} widget configurations`);
+    
+    console.log(`🔄 Step 4: Cleaning up FAQs for ${shop}`);
+    const deletedFAQs = await db.fAQ.deleteMany({
+      where: { shopDomain: shop }
+    });
+    console.log(`✅ Deleted ${deletedFAQs.count} FAQs`);
+    
+    console.log(`✅ Standard cleanup completed for ${shop}:`);
+    console.log(`   - Sessions: ${deletedSessions.count}`);
+    console.log(`   - Shops: ${updatedShop.count}`);
+    console.log(`   - Widgets: ${deletedWidgets.count}`);
+    console.log(`   - FAQs: ${deletedFAQs.count}`);
     console.log(`✅ ===== UNINSTALL PROCESS COMPLETED SUCCESSFULLY =====\n`);
     
     return new Response("OK", { status: 200 });
@@ -178,37 +207,26 @@ async function processUninstall(shop) {
     console.error(`❌ Error processing uninstallation for ${shop}:`, cleanupError);
     console.error(`❌ Error stack:`, cleanupError.stack);
     
-    // Fallback to basic cleanup if enhanced fails
+    // Even more basic fallback - just mark as inactive
     try {
-      console.log(`🔄 Attempting fallback cleanup for ${shop}`);
+      console.log(`🔄 Attempting minimal cleanup for ${shop}`);
       
-      // Basic cleanup with more detailed logging
-      console.log(`🔄 Step 1: Deleting sessions for ${shop}`);
-      const deletedSessions = await db.session.deleteMany({ 
-        where: { shop } 
-      });
-      console.log(`✅ Deleted ${deletedSessions.count} sessions`);
-      
-      console.log(`🔄 Step 2: Updating shop record for ${shop}`);
-      const updatedShop = await db.shop.updateMany({
+      // Just mark shop as inactive if we can't do full cleanup
+      const basicCleanup = await db.shop.updateMany({
         where: { shopDomain: shop },
         data: { 
           isActive: false,
-          uninstalledAt: new Date(),
-          accessToken: null,
-          tokenVersion: { increment: 1 }
+          uninstalledAt: new Date()
         }
       });
-      console.log(`✅ Updated ${updatedShop.count} shop records`);
+      console.log(`✅ Minimal cleanup - marked ${basicCleanup.count} shops as inactive`);
+      console.log(`✅ ===== MINIMAL UNINSTALL PROCESS COMPLETED =====\n`);
       
-      console.log(`✅ Fallback cleanup completed - Sessions: ${deletedSessions.count}, Shops: ${updatedShop.count}`);
-      console.log(`✅ ===== FALLBACK UNINSTALL PROCESS COMPLETED =====\n`);
+      return new Response("OK - Minimal", { status: 200 });
       
-      return new Response("OK - Fallback", { status: 200 });
-      
-    } catch (fallbackError) {
-      console.error(`❌ Fallback cleanup also failed for ${shop}:`, fallbackError);
-      console.error(`❌ Fallback error stack:`, fallbackError.stack);
+    } catch (minimalError) {
+      console.error(`❌ Minimal cleanup also failed for ${shop}:`, minimalError);
+      console.error(`❌ Minimal error stack:`, minimalError.stack);
       console.error(`❌ ===== UNINSTALL PROCESS FAILED COMPLETELY =====\n`);
       return new Response("Cleanup Failed", { status: 500 });
     }
