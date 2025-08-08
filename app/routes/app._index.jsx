@@ -566,6 +566,41 @@ export default function Index() {
                   </List>
                 </BlockStack>
               </Card>
+              
+              {/* Debug Tools - Development Only */}
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="h2" variant="headingMd">
+                    🔧 Debug Tools
+                  </Text>
+                  <List>
+                    <List.Item>
+                      <Link
+                        url="/debug/uninstall-test?action=check-webhooks"
+                        removeUnderline
+                      >
+                        Check Webhook Registration
+                      </Link>
+                    </List.Item>
+                    <List.Item>
+                      <Link
+                        url="/debug/uninstall-test?action=status&shop=aman-chatbot-test.myshopify.com"
+                        removeUnderline
+                      >
+                        Check Shop Status
+                      </Link>
+                    </List.Item>
+                    <List.Item>
+                      <Link
+                        url="/debug/uninstall-test"
+                        removeUnderline
+                      >
+                        Debug Dashboard
+                      </Link>
+                    </List.Item>
+                  </List>
+                </BlockStack>
+              </Card>
             </BlockStack>
           </Layout.Section>
         </Layout>
