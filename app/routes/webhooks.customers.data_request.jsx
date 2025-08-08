@@ -1,4 +1,3 @@
-import { authenticate } from "../shopify.server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 console.log(`🔔 customers.data_request.jsx loaded at ${new Date().toISOString()}`);
@@ -21,6 +20,9 @@ function verifyWebhookSignature(body, signature, secret) {
 }
 
 export const action = async ({ request }) => {
+  // Import server-only modules inside the action function
+  const { authenticate } = await import("../shopify.server");
+  
   const timestamp = new Date().toISOString();
   console.log(`\n🔔 ===== CUSTOMER DATA REQUEST WEBHOOK ===== ${timestamp}`);
   

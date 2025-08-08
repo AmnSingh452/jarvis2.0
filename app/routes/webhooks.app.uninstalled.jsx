@@ -1,6 +1,3 @@
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
-import { TokenCleanupService } from "../../enhanced-token-cleanup.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 // Add immediate logging to see if this file is even being loaded
@@ -38,8 +35,13 @@ function verifyWebhookSignature(body, signature, secret) {
 }
 
 export const action = async ({ request }) => {
+  // Import server-only modules inside the action function
+  const { authenticate } = await import("../shopify.server");
+  const db = (await import("../db.server")).default;
+  const { TokenCleanupService } = await import("../../enhanced-token-cleanup.js");
+  
   const timestamp = new Date().toISOString();
-  console.log(`\n🔔 ===== APP UNINSTALL WEBHOOK TRIGGERED ===== ${timestamp}`);
+  console.log(`\n🔔 ===== APP UNINSTALLED WEBHOOK ===== ${timestamp}`);
   console.log(`🔔 Webhook received: ${request.method} ${request.url}`);
   
   // Clone the request to avoid "body used already" error
