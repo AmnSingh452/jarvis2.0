@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 // Add immediate logging to see if this file is even being loaded
-console.log(`🔔 webhooks.app.uninstalled.jsx file loaded at ${new Date().toISOString()}`);
+console.log(`🔔 webhooks.app.uninstalled.jsx FIXED VERSION v2.0 loaded at ${new Date().toISOString()}`);
+console.log(`🔔 This version has the TokenCleanupService fix and proper db handling`);
 
 // HMAC Verification Function
 function verifyWebhookSignature(body, signature, secret) {

@@ -7,7 +7,7 @@ import {
   useRouteError,
   isRouteErrorResponse,
 } from "@remix-run/react";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ErrorBoundary as CustomErrorBoundary } from "./components/ErrorBoundary";
 
 export function ErrorBoundary() {
   const error = useRouteError();
