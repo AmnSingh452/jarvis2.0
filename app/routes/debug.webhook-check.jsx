@@ -16,38 +16,74 @@ export const loader = async ({ request }) => {
     const { authenticate } = await import("../shopify.server.js");
     
     if (action === "list") {
-      // Try to get shop info and list webhooks
+      // Use GraphQL instead of REST to list webhooks
       const { admin, session } = await authenticate.admin(request);
       
-      const response = await admin.rest.resources.Webhook.all({
-        session,
-      });
+      const response = await admin.graphql(`
+        #graphql
+        query webhookSubscriptions {
+          webhookSubscriptions(first: 50) {
+            edges {
+              node {
+                id
+                callbackUrl
+                topic
+                format
+                createdAt
+                updatedAt
+              }
+            }
+          }
+        }
+      `);
+      
+      const responseJson = await response.json();
       
       return json({
         success: true,
         shop: session.shop,
-        webhooks: response.data,
-        message: "Current webhooks registered for this app"
+        webhooks: responseJson.data.webhookSubscriptions.edges.map(edge => edge.node),
+        message: "Current webhooks registered for this app (via GraphQL)"
       });
     }
     
     if (action === "register") {
-      // Try to register the webhook manually
+      // Use GraphQL instead of REST to register webhook
       const { admin, session } = await authenticate.admin(request);
       
-      const webhook = new admin.rest.resources.Webhook({session});
-      webhook.topic = "app/uninstalled";
-      webhook.address = `${process.env.SHOPIFY_APP_URL}/webhooks/app/uninstalled`;
-      webhook.format = "json";
-      
-      await webhook.save({
-        update: true,
+      const response = await admin.graphql(`
+        #graphql
+        mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
+          webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
+            webhookSubscription {
+              id
+              callbackUrl
+              topic
+              format
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `, {
+        variables: {
+          topic: "APP_UNINSTALLED",
+          webhookSubscription: {
+            callbackUrl: `${process.env.SHOPIFY_APP_URL}/webhooks/app/uninstalled`,
+            format: "JSON"
+          }
+        }
       });
+      
+      const responseJson = await response.json();
       
       return json({
         success: true,
-        webhook: webhook,
-        message: "Webhook registered successfully"
+        webhook: responseJson.data.webhookSubscriptionCreate.webhookSubscription,
+        errors: responseJson.data.webhookSubscriptionCreate.userErrors,
+        message: "Webhook registered successfully via GraphQL"
       });
     }
 

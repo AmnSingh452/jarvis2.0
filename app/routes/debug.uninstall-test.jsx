@@ -107,22 +107,38 @@ export const loader = async ({ request }) => {
     }
 
     if (action === "check-webhooks") {
-      // Check registered webhooks (requires active session)
+      // Check registered webhooks using GraphQL instead of REST
       try {
         const { admin, session } = await authenticate.admin(request);
         
-        const response = await admin.rest.resources.Webhook.all({
-          session,
-        });
+        const response = await admin.graphql(`
+          #graphql
+          query webhookSubscriptions {
+            webhookSubscriptions(first: 50) {
+              edges {
+                node {
+                  id
+                  callbackUrl
+                  topic
+                  format
+                  createdAt
+                  updatedAt
+                }
+              }
+            }
+          }
+        `);
         
-        const uninstallWebhooks = response.data.filter(w => w.topic === 'app/uninstalled');
+        const responseJson = await response.json();
+        const webhooks = responseJson.data.webhookSubscriptions.edges.map(edge => edge.node);
+        const uninstallWebhooks = webhooks.filter(w => w.topic === 'APP_UNINSTALLED');
         
         return json({
           success: true,
           shop: session.shop,
-          allWebhooks: response.data,
+          allWebhooks: webhooks,
           uninstallWebhooks,
-          webhookCount: response.data.length,
+          webhookCount: webhooks.length,
           hasUninstallWebhook: uninstallWebhooks.length > 0,
           message: "Webhook registration check completed"
         });
@@ -135,22 +151,42 @@ export const loader = async ({ request }) => {
     }
 
     if (action === "register-webhook") {
-      // Manually register webhook (requires active session)
+      // Manually register webhook using GraphQL instead of REST
       try {
         const { admin, session } = await authenticate.admin(request);
         
-        const webhook = new admin.rest.resources.Webhook({session});
-        webhook.topic = "app/uninstalled";
-        webhook.address = `${process.env.SHOPIFY_APP_URL || 'https://jarvis2-0-djg1.onrender.com'}/webhooks/app/uninstalled`;
-        webhook.format = "json";
-        
-        await webhook.save({
-          update: true,
+        const response = await admin.graphql(`
+          #graphql
+          mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
+            webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
+              webhookSubscription {
+                id
+                callbackUrl
+                topic
+                format
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `, {
+          variables: {
+            topic: "APP_UNINSTALLED",
+            webhookSubscription: {
+              callbackUrl: `${process.env.SHOPIFY_APP_URL || 'https://jarvis2-0-djg1.onrender.com'}/webhooks/app/uninstalled`,
+              format: "JSON"
+            }
+          }
         });
+        
+        const responseJson = await response.json();
         
         return json({
           success: true,
-          webhook: webhook,
+          webhook: responseJson.data.webhookSubscriptionCreate.webhookSubscription,
+          errors: responseJson.data.webhookSubscriptionCreate.userErrors,
           shop: session.shop,
           message: "Uninstall webhook registered successfully"
         });
