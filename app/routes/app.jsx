@@ -31,6 +31,7 @@ export default function App() {
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
       <NavMenu>
+        <Link to="/app/billing2.0">Billing2.0</Link>  
         <Link to="/app" rel="home">
           Dashboard
         </Link>
@@ -45,6 +46,7 @@ export default function App() {
         </Link>
         <Link to="/app/additional">
           Additional Features
+        
         </Link>
       </NavMenu>
       <Outlet />
