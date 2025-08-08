@@ -11,11 +11,25 @@ function verifyWebhookSignature(body, signature, secret) {
   }
 
   try {
+    console.log(`🔐 HMAC Debug:`);
+    console.log(`   Body length: ${body.length}`);
+    console.log(`   Signature: ${signature}`);
+    console.log(`   Secret length: ${secret.length}`);
+    
+    // Shopify sends HMAC as base64, calculate our own
     const hmac = createHmac('sha256', secret);
     hmac.update(body, 'utf8');
     const calculatedSignature = hmac.digest('base64');
     
-    // Compare signatures using timingSafeEqual to prevent timing attacks
+    console.log(`   Calculated: ${calculatedSignature}`);
+    console.log(`   Match: ${calculatedSignature === signature}`);
+    
+    // Direct string comparison first
+    if (calculatedSignature === signature) {
+      return true;
+    }
+    
+    // Fallback to buffer comparison for timing safety
     const providedSignature = Buffer.from(signature, 'base64');
     const calculatedBuffer = Buffer.from(calculatedSignature, 'base64');
     
@@ -25,7 +39,7 @@ function verifyWebhookSignature(body, signature, secret) {
     }
     
     const isValid = timingSafeEqual(providedSignature, calculatedBuffer);
-    console.log(`🔐 HMAC verification: ${isValid ? 'VALID' : 'INVALID'}`);
+    console.log(`🔐 Buffer comparison result: ${isValid}`);
     return isValid;
     
   } catch (error) {
@@ -74,10 +88,42 @@ export const action = async ({ request }) => {
 
   // Verify HMAC signature if available
   const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+  const clientSecret = process.env.SHOPIFY_API_SECRET;
   let hmacValid = false;
   
-  if (hmacHeader && webhookSecret) {
-    hmacValid = verifyWebhookSignature(bodyText, hmacHeader, webhookSecret);
+  console.log(`🔐 Secret Debug:`);
+  console.log(`   SHOPIFY_WEBHOOK_SECRET: ${webhookSecret ? 'SET' : 'NOT SET'}`);
+  console.log(`   SHOPIFY_API_SECRET: ${clientSecret ? 'SET' : 'NOT SET'}`);
+  
+  if (hmacHeader) {
+    // Try webhook secret first
+    if (webhookSecret) {
+      hmacValid = verifyWebhookSignature(bodyText, hmacHeader, webhookSecret);
+      if (hmacValid) {
+        console.log(`✅ HMAC signature verified with webhook secret`);
+      } else {
+        console.log(`❌ HMAC verification failed with webhook secret`);
+        
+        // Try with client secret as fallback
+        if (clientSecret) {
+          console.log(`🔄 Trying with client secret...`);
+          hmacValid = verifyWebhookSignature(bodyText, hmacHeader, clientSecret);
+          if (hmacValid) {
+            console.log(`✅ HMAC signature verified with client secret`);
+          } else {
+            console.log(`❌ HMAC verification failed with client secret too`);
+          }
+        }
+      }
+    } else if (clientSecret) {
+      // Only client secret available
+      hmacValid = verifyWebhookSignature(bodyText, hmacHeader, clientSecret);
+      if (hmacValid) {
+        console.log(`✅ HMAC signature verified with client secret`);
+      } else {
+        console.log(`❌ HMAC verification failed with client secret`);
+      }
+    }
     if (!hmacValid) {
       console.error(`❌ HMAC signature verification failed`);
       return new Response("Webhook signature verification failed", { status: 401 });

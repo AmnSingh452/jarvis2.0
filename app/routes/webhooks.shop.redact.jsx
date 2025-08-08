@@ -4,15 +4,43 @@ console.log(`🔔 shop.redact.jsx loaded at ${new Date().toISOString()}`);
 
 // HMAC Verification Function
 function verifyWebhookSignature(body, signature, secret) {
-  if (!signature || !secret) return false;
+  if (!signature || !secret) {
+    console.warn("⚠️ Missing webhook signature or secret");
+    return false;
+  }
+
   try {
+    console.log(`🔐 HMAC Debug:`);
+    console.log(`   Body length: ${body.length}`);
+    console.log(`   Signature: ${signature}`);
+    console.log(`   Secret length: ${secret.length}`);
+    
+    // Shopify sends HMAC as base64, calculate our own
     const hmac = createHmac('sha256', secret);
     hmac.update(body, 'utf8');
     const calculatedSignature = hmac.digest('base64');
+    
+    console.log(`   Calculated: ${calculatedSignature}`);
+    console.log(`   Match: ${calculatedSignature === signature}`);
+    
+    // Direct string comparison first
+    if (calculatedSignature === signature) {
+      return true;
+    }
+    
+    // Fallback to buffer comparison for timing safety
     const providedSignature = Buffer.from(signature, 'base64');
     const calculatedBuffer = Buffer.from(calculatedSignature, 'base64');
-    return providedSignature.length === calculatedBuffer.length && 
-           timingSafeEqual(providedSignature, calculatedBuffer);
+    
+    if (providedSignature.length !== calculatedBuffer.length) {
+      console.error("❌ Signature length mismatch");
+      return false;
+    }
+    
+    const isValid = timingSafeEqual(providedSignature, calculatedBuffer);
+    console.log(`🔐 Buffer comparison result: ${isValid}`);
+    return isValid;
+    
   } catch (error) {
     console.error("❌ HMAC verification error:", error);
     return false;
@@ -41,14 +69,47 @@ export const action = async ({ request }) => {
     // Verify HMAC if available
     const body = await clonedRequest.text();
     const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+    const clientSecret = process.env.SHOPIFY_API_SECRET;
     
-    if (hmacHeader && webhookSecret) {
-      const hmacValid = verifyWebhookSignature(body, hmacHeader, webhookSecret);
-      if (!hmacValid) {
-        console.error(`❌ HMAC verification failed`);
+    console.log(`🔐 Secret Debug:`);
+    console.log(`   SHOPIFY_WEBHOOK_SECRET: ${webhookSecret ? 'SET' : 'NOT SET'}`);
+    console.log(`   SHOPIFY_API_SECRET: ${clientSecret ? 'SET' : 'NOT SET'}`);
+    
+    if (hmacHeader) {
+      // Try webhook secret first
+      if (webhookSecret) {
+        const hmacValid = verifyWebhookSignature(body, hmacHeader, webhookSecret);
+        if (hmacValid) {
+          console.log(`✅ HMAC signature verified with webhook secret`);
+        } else {
+          console.log(`❌ HMAC verification failed with webhook secret`);
+          
+          // Try with client secret as fallback
+          if (clientSecret) {
+            console.log(`🔄 Trying with client secret...`);
+            const hmacValidClient = verifyWebhookSignature(body, hmacHeader, clientSecret);
+            if (hmacValidClient) {
+              console.log(`✅ HMAC signature verified with client secret`);
+            } else {
+              console.log(`❌ HMAC verification failed with client secret too`);
+              return new Response("Webhook signature verification failed", { status: 401 });
+            }
+          } else {
+            return new Response("Webhook signature verification failed", { status: 401 });
+          }
+        }
+      } else if (clientSecret) {
+        // Only client secret available
+        const hmacValid = verifyWebhookSignature(body, hmacHeader, clientSecret);
+        if (!hmacValid) {
+          console.error(`❌ HMAC verification failed with client secret`);
+          return new Response("Webhook signature verification failed", { status: 401 });
+        }
+        console.log(`✅ HMAC signature verified with client secret`);
+      } else {
+        console.error(`❌ No webhook or client secret available for HMAC verification`);
         return new Response("Webhook signature verification failed", { status: 401 });
       }
-      console.log(`✅ HMAC signature verified`);
     }
     
     // Parse the webhook payload
