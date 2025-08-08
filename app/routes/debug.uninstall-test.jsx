@@ -38,7 +38,7 @@ export const loader = async ({ request }) => {
 
       const recentLogs = await db.default.installationLog.findMany({
         where: { shopDomain: shop },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { timestamp: 'desc' },
         take: 5
       });
 
