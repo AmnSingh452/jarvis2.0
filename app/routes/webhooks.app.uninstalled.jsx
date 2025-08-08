@@ -1,8 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 // Add immediate logging to see if this file is even being loaded
-console.log(`🔔 webhooks.app.uninstalled.jsx FIXED VERSION v2.0 loaded at ${new Date().toISOString()}`);
-console.log(`🔔 This version has the TokenCleanupService fix and proper db handling`);
+console.log(`🔔 webhooks.app.uninstalled.jsx FIXED VERSION v2.1 loaded at ${new Date().toISOString()}`);
+console.log(`🔔 This version has the database model fixes (WidgetSettings, no FAQ model)`);
+console.log(`🔔 Fixed: db.widgetSetting -> db.widgetSettings, removed non-existent fAQ model`);
 
 // HMAC Verification Function
 function verifyWebhookSignature(body, signature, secret) {
@@ -183,23 +184,30 @@ async function processUninstall(shop, db) {
     });
     console.log(`✅ Updated ${updatedShop.count} shop records`);
     
-    console.log(`🔄 Step 3: Cleaning up widgets for ${shop}`);
-    const deletedWidgets = await db.widgetSetting.deleteMany({
+    console.log(`🔄 Step 3: Cleaning up widget settings for ${shop}`);
+    const deletedWidgets = await db.widgetSettings.deleteMany({
       where: { shopDomain: shop }
     });
     console.log(`✅ Deleted ${deletedWidgets.count} widget configurations`);
     
-    console.log(`🔄 Step 4: Cleaning up FAQs for ${shop}`);
-    const deletedFAQs = await db.fAQ.deleteMany({
+    console.log(`🔄 Step 4: Cleaning up subscriptions for ${shop}`);
+    const deletedSubscriptions = await db.subscription.deleteMany({
       where: { shopDomain: shop }
     });
-    console.log(`✅ Deleted ${deletedFAQs.count} FAQs`);
+    console.log(`✅ Deleted ${deletedSubscriptions.count} subscriptions`);
+    
+    console.log(`🔄 Step 5: Cleaning up installation logs for ${shop}`);
+    const deletedLogs = await db.installationLog.deleteMany({
+      where: { shopDomain: shop }
+    });
+    console.log(`✅ Deleted ${deletedLogs.count} installation logs`);
     
     console.log(`✅ Standard cleanup completed for ${shop}:`);
     console.log(`   - Sessions: ${deletedSessions.count}`);
     console.log(`   - Shops: ${updatedShop.count}`);
-    console.log(`   - Widgets: ${deletedWidgets.count}`);
-    console.log(`   - FAQs: ${deletedFAQs.count}`);
+    console.log(`   - Widget Settings: ${deletedWidgets.count}`);
+    console.log(`   - Subscriptions: ${deletedSubscriptions.count}`);
+    console.log(`   - Installation Logs: ${deletedLogs.count}`);
     console.log(`✅ ===== UNINSTALL PROCESS COMPLETED SUCCESSFULLY =====\n`);
     
     return new Response("OK", { status: 200 });
