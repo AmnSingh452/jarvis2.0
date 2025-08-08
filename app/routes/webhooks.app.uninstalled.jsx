@@ -1,58 +1,113 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { TokenCleanupService } from "../../enhanced-token-cleanup.js";
+import crypto from "crypto";
 
 // Add immediate logging to see if this file is even being loaded
 console.log(`🔔 webhooks.app.uninstalled.jsx file loaded at ${new Date().toISOString()}`);
+
+// HMAC Verification Function
+function verifyWebhookSignature(body, signature, secret) {
+  if (!signature || !secret) {
+    console.warn("⚠️ Missing webhook signature or secret");
+    return false;
+  }
+
+  try {
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(body, 'utf8');
+    const calculatedSignature = hmac.digest('base64');
+    
+    // Compare signatures using timingSafeEqual to prevent timing attacks
+    const providedSignature = Buffer.from(signature, 'base64');
+    const calculatedBuffer = Buffer.from(calculatedSignature, 'base64');
+    
+    if (providedSignature.length !== calculatedBuffer.length) {
+      console.error("❌ Signature length mismatch");
+      return false;
+    }
+    
+    const isValid = crypto.timingSafeEqual(providedSignature, calculatedBuffer);
+    console.log(`🔐 HMAC verification: ${isValid ? 'VALID' : 'INVALID'}`);
+    return isValid;
+    
+  } catch (error) {
+    console.error("❌ Error verifying webhook signature:", error);
+    return false;
+  }
+}
 
 export const action = async ({ request }) => {
   const timestamp = new Date().toISOString();
   console.log(`\n🔔 ===== APP UNINSTALL WEBHOOK TRIGGERED ===== ${timestamp}`);
   console.log(`🔔 Webhook received: ${request.method} ${request.url}`);
   
+  // Clone the request to avoid "body used already" error
+  const clonedRequest = request.clone();
+  
   // Log all headers for debugging
   const headers = Object.fromEntries(request.headers.entries());
   console.log(`🔔 ALL HEADERS:`, JSON.stringify(headers, null, 2));
   
-  // Check if this looks like a Shopify webhook
+  // Extract webhook information
   const shopHeader = headers['x-shopify-shop-domain'];
   const topicHeader = headers['x-shopify-topic'];
   const webhookId = headers['x-shopify-webhook-id'];
+  const hmacHeader = headers['x-shopify-hmac-sha256'];
   
   console.log(`🔔 WEBHOOK DETAILS:`);
   console.log(`   Shop: ${shopHeader}`);
   console.log(`   Topic: ${topicHeader}`);
   console.log(`   Webhook ID: ${webhookId}`);
-  
-  // Get request body for more info
+  console.log(`   HMAC Present: ${hmacHeader ? 'Yes' : 'No'}`);
+
+  // Get request body for HMAC verification
   let bodyText = '';
   try {
-    bodyText = await request.text();
+    bodyText = await clonedRequest.text();
     console.log(`🔔 WEBHOOK BODY:`, bodyText);
   } catch (e) {
     console.log(`🔔 Could not read webhook body:`, e.message);
   }
 
-  // Try authenticated approach first, but have fallback
-  try {
-    // Try to authenticate the webhook
-    const { shop, session, topic } = await authenticate.webhook(request);
-    console.log(`✅ Webhook authenticated successfully for shop: ${shop}, topic: ${topic}`);
+  // Verify HMAC signature if available
+  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+  let hmacValid = false;
+  
+  if (hmacHeader && webhookSecret) {
+    hmacValid = verifyWebhookSignature(bodyText, hmacHeader, webhookSecret);
+    if (!hmacValid) {
+      console.error(`❌ HMAC signature verification failed`);
+      return new Response("Webhook signature verification failed", { status: 401 });
+    }
+    console.log(`✅ HMAC signature verified successfully`);
+  } else {
+    console.warn(`⚠️ HMAC verification skipped - missing signature or secret`);
+  }
 
+  // Try Shopify's built-in authentication first
+  try {
+    const { shop, session, topic } = await authenticate.webhook(request);
+    console.log(`✅ Shopify authentication successful for shop: ${shop}, topic: ${topic}`);
     return await processUninstall(shop);
 
   } catch (authError) {
-    console.error(`❌ Webhook authentication failed:`, authError.message);
-    console.error(`❌ Auth error details:`, authError);
+    console.error(`❌ Shopify authentication failed:`, authError.message);
     
-    // If authentication fails but we have valid Shopify headers, proceed with manual cleanup
-    if (shopHeader && topicHeader === 'app/uninstalled') {
-      console.log(`🔄 Authentication failed, but attempting cleanup based on headers for shop: ${shopHeader}`);
+    // If HMAC is valid and we have shop info, proceed with cleanup
+    if (hmacValid && shopHeader && topicHeader === 'app/uninstalled') {
+      console.log(`🔄 Using HMAC-verified fallback for shop: ${shopHeader}`);
       return await processUninstall(shopHeader);
     }
     
-    console.error(`❌ No valid shop information found in headers`);
-    return new Response("Authentication Failed - No Shop Info", { status: 400 });
+    // If we have shop info but no HMAC (dev environment), allow fallback
+    if (shopHeader && topicHeader === 'app/uninstalled' && !hmacHeader) {
+      console.log(`🔄 Development fallback for shop: ${shopHeader} (no HMAC required)`);
+      return await processUninstall(shopHeader);
+    }
+    
+    console.error(`❌ Authentication failed and no valid fallback available`);
+    return new Response("Webhook Authentication Failed", { status: 401 });
   }
 };
 
