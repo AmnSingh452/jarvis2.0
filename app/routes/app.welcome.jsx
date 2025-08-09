@@ -115,7 +115,7 @@ export default function Welcome() {
                     Track how your chatbot is helping customers and boosting sales.
                   </Text>
                   <div style={{ marginTop: '20px' }}>
-                    <Button>
+                    <Button url="/app/analytics">
                       View Analytics
                     </Button>
                   </div>
@@ -138,7 +138,7 @@ export default function Welcome() {
                 <Button primary url="/app/widget-settings">
                   Customize Widget
                 </Button>
-                <Button url="/app/billing">
+                <Button url="/app/billing_v2">
                   View Billing
                 </Button>
                 <Button url="/app/additional">

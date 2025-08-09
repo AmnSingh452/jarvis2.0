@@ -125,3 +125,57 @@ model Payment {
 
   @@index([subscriptionId, status])
 }
+
+// Analytics Models
+model ChatConversation {
+  id                String           @id @default(cuid())
+  shopDomain        String
+  sessionId         String?
+  customerIp        String?
+  customerName      String?
+  startTime         DateTime         @default(now())
+  endTime           DateTime?
+  totalMessages     Int              @default(0)
+  customerSatisfaction Float?        // 1-5 rating
+  converted         Boolean          @default(false)
+  conversionValue   Decimal?
+  topic             String?
+  status            String           @default("active") // active, completed, abandoned
+  chatMessages      ChatMessage[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([shopDomain, startTime])
+  @@index([shopDomain, converted])
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  role           String           // user, assistant, system
+  content        String
+  timestamp      DateTime         @default(now())
+  responseTime   Float?           // Response time in seconds
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, timestamp])
+}
+
+model AnalyticsMetrics {
+  id                   String   @id @default(cuid())
+  shopDomain           String
+  date                 DateTime // Date for daily aggregation
+  totalConversations   Int      @default(0)
+  uniqueVisitors       Int      @default(0)
+  totalMessages        Int      @default(0)
+  averageResponseTime  Float?   // Average response time in seconds
+  conversions          Int      @default(0)
+  revenue              Decimal  @default(0)
+  customerSatisfaction Float?   // Average satisfaction score
+  topQuestions         Json?    // JSON array of frequently asked questions
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([shopDomain, date])
+  @@index([shopDomain, date])
+}

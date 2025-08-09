@@ -225,7 +225,7 @@ export default function WidgetSettings() {
           },
           {
             content: "Billing & Plans",
-            url: "/app/billing"
+            url: "/app/billing_v2"
           },
           {
             content: "Additional Features",

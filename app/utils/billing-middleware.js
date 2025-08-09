@@ -18,7 +18,7 @@ export async function withBillingCheck(shopDomain, processChatFunction, request)
         error: "Subscription required",
         message: errorMessages[billingCheck.reason] || "Billing issue detected",
         reason: billingCheck.reason,
-        redirectTo: "/app/billing"
+        redirectTo: "/app/billing_v2"
       }, { status: 402 });
     }
     

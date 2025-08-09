@@ -48,7 +48,7 @@ export default function AdditionalPage() {
                     <Button url="/app/widget-settings" variant="secondary">
                       Widget Settings
                     </Button>
-                    <Button url="/app/billing" variant="secondary">
+                    <Button url="/app/billing_v2" variant="secondary">
                       Billing & Plans
                     </Button>
                     <Button url="/app/welcome" variant="secondary">

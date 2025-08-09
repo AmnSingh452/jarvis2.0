@@ -1,5 +1,38 @@
 import { json } from "@remix-run/node";
 
+export async function action({ request }) {
+  const url = new URL(request.url);
+  const shopDomain = url.searchParams.get("shop");
+  
+  if (!shopDomain) {
+    return json({ error: "Shop parameter required" }, { status: 400 });
+  }
+
+  const { PrismaClient } = await import("@prisma/client");
+  const prisma = new PrismaClient();
+
+  try {
+    const formData = await request.formData();
+    const settings = JSON.parse(formData.get("settings"));
+
+    const updatedSettings = await prisma.widgetSettings.upsert({
+      where: { shopDomain },
+      update: settings,
+      create: {
+        shopDomain,
+        ...settings
+      }
+    });
+
+    return json({ success: true, settings: updatedSettings });
+  } catch (error) {
+    console.error("Error saving widget settings:", error);
+    return json({ error: "Failed to save settings" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 export async function loader({ request }) {
   const url = new URL(request.url);
   const shopDomain = url.searchParams.get("shop");

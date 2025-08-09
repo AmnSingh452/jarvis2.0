@@ -267,14 +267,34 @@ export default function Index() {
                     <Card background="bg-surface-secondary">
                       <BlockStack gap="300">
                         <Text as="h3" variant="headingMd">
-                          💳 Billing & Plans
+                          � Analytics Dashboard
+                        </Text>
+                        <Text variant="bodyMd" as="p">
+                          Monitor chatbot performance, track conversions, and gain insights into customer interactions.
+                        </Text>
+                        <InlineStack gap="200">
+                          <Button 
+                            url="/app/analytics" 
+                            variant="primary"
+                          >
+                            View Analytics
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </Card>
+                  </Layout.Section>
+                  <Layout.Section variant="oneHalf">
+                    <Card background="bg-surface-secondary">
+                      <BlockStack gap="300">
+                        <Text as="h3" variant="headingMd">
+                          �💳 Billing & Plans
                         </Text>
                         <Text variant="bodyMd" as="p">
                           Manage your subscription, view usage analytics, and configure your plan settings.
                         </Text>
                         <InlineStack gap="200">
                           <Button 
-                            url="/app/billing" 
+                            url="/app/billing_v2" 
                             variant="primary"
                           >
                             Manage Billing
@@ -521,13 +541,19 @@ export default function Index() {
                       - Customize appearance, colors, and behavior
                     </List.Item>
                     <List.Item>
+                      <Link url="/app/analytics" removeUnderline>
+                        Analytics Dashboard
+                      </Link>{" "}
+                      - Monitor performance and customer insights
+                    </List.Item>
+                    <List.Item>
                       <Link url="/app/welcome" removeUnderline>
                         Welcome Guide
                       </Link>{" "}
                       - Get started with Jarvis features
                     </List.Item>
                     <List.Item>
-                      <Link url="/app/billing" removeUnderline>
+                      <Link url="/app/billing_v2" removeUnderline>
                         Billing & Plans
                       </Link>{" "}
                       - Manage subscription and usage
