@@ -2,8 +2,9 @@ services:
   - type: web
     name: jarvis2-0
     runtime: node
-    buildCommand: npm install && npx prisma generate && npm run build
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy && npm run build
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
