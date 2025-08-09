@@ -3,6 +3,7 @@ import { createRequestHandler } from '@remix-run/express';
 import { installGlobals } from '@remix-run/node';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,6 +11,20 @@ const __dirname = path.dirname(__filename);
 installGlobals();
 
 const app = express();
+
+// Check if build directory exists
+const buildClientPath = path.join(__dirname, 'build/client');
+const buildServerPath = path.join(__dirname, 'build/server/index.js');
+
+if (!fs.existsSync(buildClientPath)) {
+  console.error('Build client directory not found. Make sure to run npm run build first.');
+  process.exit(1);
+}
+
+if (!fs.existsSync(buildServerPath)) {
+  console.error('Build server file not found. Make sure to run npm run build first.');
+  process.exit(1);
+}
 
 // Serve static files from the build/client directory
 app.use('/assets', express.static(path.join(__dirname, 'build/client/assets'), {
