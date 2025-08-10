@@ -3,30 +3,35 @@ import { Card, Page, Layout, Text, Button, List, Banner } from "@shopify/polaris
 import { authenticate } from "../shopify.server";
 
 export async function loader({ request }) {
-  const { session } = await authenticate.admin(request);
-  
-  return {
-    shopName: session.shop.replace('.myshopify.com', ''),
-    shopDomain: session.shop,
-    features: [
-      {
-        title: "24/7 Customer Support",
-        description: "Instant responses to customer queries anytime"
-      },
-      {
-        title: "Increased Sales", 
-        description: "Convert more visitors with intelligent product recommendations"
-      },
-      {
-        title: "Easy Setup",
-        description: "Get started in just a few clicks - no coding required"
-      },
-      {
-        title: "Smart AI",
-        description: "Powered by advanced AI to understand customer needs"
-      }
-    ]
-  };
+  try {
+    const { session } = await authenticate.admin(request);
+    
+    return {
+      shopName: session.shop.replace('.myshopify.com', ''),
+      shopDomain: session.shop,
+      features: [
+        {
+          title: "24/7 Customer Support",
+          description: "Instant responses to customer queries anytime"
+        },
+        {
+          title: "Increased Sales", 
+          description: "Convert more visitors with intelligent product recommendations"
+        },
+        {
+          title: "Easy Setup",
+          description: "Get started in just a few clicks - no coding required"
+        },
+        {
+          title: "Smart AI",
+          description: "Powered by advanced AI to understand customer needs"
+        }
+      ]
+    };
+  } catch (error) {
+    console.error("Welcome route authentication error:", error);
+    throw new Response("Authentication failed", { status: 503 });
+  }
 }
 
 export default function Welcome() {
