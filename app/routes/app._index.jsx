@@ -18,46 +18,57 @@ import { redirect } from "@remix-run/node";
 
 export const loader = async ({ request }) => {
   console.log("🏠 App index route accessed");
-  
-  const { session } = await authenticate.admin(request);
-  console.log(`📍 App index session:`, {
-    shop: session?.shop,
-    hasToken: !!session?.accessToken,
-    scopes: session?.scope
+  console.log("📍 Request URL:", request.url);
+  console.log("📍 Request headers:", {
+    userAgent: request.headers.get('user-agent'),
+    referer: request.headers.get('referer'),
+    host: request.headers.get('host'),
+    authorization: request.headers.get('authorization') ? 'Present' : 'Missing'
   });
   
-  // Check if this is a fresh installation
   try {
-    const { verifyFreshInstallation } = await import("../../cleanup-db.js");
-    const verification = await verifyFreshInstallation(session.shop);
-    
-    console.log(`🔍 Fresh installation check:`, {
-      shop: session.shop,
-      isFreshInstall: verification.isFresh,
-      oldSessions: verification.oldSessions,
-      oldShops: verification.oldShops
+    console.log("🔐 Starting authentication...");
+    const { session } = await authenticate.admin(request);
+    console.log(`📍 App index session:`, {
+      shop: session?.shop,
+      hasToken: !!session?.accessToken,
+      scopes: session?.scope,
+      isOnline: session?.isOnline,
+      userId: session?.userId
     });
+  
+    // Check if this is a fresh installation
+    try {
+      const { verifyFreshInstallation } = await import("../../cleanup-db.js");
+      const verification = await verifyFreshInstallation(session.shop);
+      
+      console.log(`🔍 Fresh installation check:`, {
+        shop: session.shop,
+        isFreshInstall: verification.isFresh,
+        oldSessions: verification.oldSessions,
+        oldShops: verification.oldShops
+      });
 
-    // PRODUCTION-READY: Use session data to maintain shop records
-    // This handles multiple clients and reinstallation scenarios
-    if (session && session.accessToken) {
-      try {
-        const db = await import("../db.server");
-        
-        // Check if shop exists and its status
-        const existingShop = await db.default.shop.findUnique({
-          where: { shopDomain: session.shop }
-        });
-        
-        let isNewInstallation = false;
-        let isReinstallation = false;
-        
-        if (!existingShop) {
-          // Completely new shop
-          isNewInstallation = true;
-        } else if (!existingShop.isActive || existingShop.uninstalledAt) {
-          // Shop exists but was uninstalled - this is a reinstallation
-          isReinstallation = true;
+      // PRODUCTION-READY: Use session data to maintain shop records
+      // This handles multiple clients and reinstallation scenarios
+      if (session && session.accessToken) {
+        try {
+          const db = await import("../db.server");
+          
+          // Check if shop exists and its status
+          const existingShop = await db.default.shop.findUnique({
+            where: { shopDomain: session.shop }
+          });
+          
+          let isNewInstallation = false;
+          let isReinstallation = false;
+          
+          if (!existingShop) {
+            // Completely new shop
+            isNewInstallation = true;
+          } else if (!existingShop.isActive || existingShop.uninstalledAt) {
+            // Shop exists but was uninstalled - this is a reinstallation
+            isReinstallation = true;
         }
         
         // Always ensure shop data is current with latest session info
@@ -138,6 +149,15 @@ export const loader = async ({ request }) => {
     }
   } catch (error) {
     console.log("Fresh installation check failed:", error);
+  }
+  } catch (authError) {
+    console.error("❌ Authentication failed in app index:", authError);
+    console.error("📋 Auth error details:", {
+      name: authError.name,
+      message: authError.message,
+      stack: authError.stack?.substring(0, 500)
+    });
+    throw authError;
   }
 
   return null;
