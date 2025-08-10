@@ -3,7 +3,10 @@ import { createRequestHandler } from '@remix-run/express';
 import { installGlobals } from '@remix-run/node';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
+const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -24,6 +27,20 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Run database migrations once at startup
+async function runMigrations() {
+  if (process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
+    try {
+      console.log('Running database migrations...');
+      await execAsync('npx prisma migrate deploy');
+      console.log('Database migrations completed');
+    } catch (error) {
+      console.warn('Migration failed (might be already applied):', error.message);
+      // Don't fail the startup for migration issues in production
+    }
+  }
+}
+
 // Load Remix build and setup request handler
 async function setupRemix() {
   try {
@@ -36,8 +53,14 @@ async function setupRemix() {
 }
 
 // Initialize server
-setupRemix()
-  .then((requestHandler) => {
+async function startServer() {
+  try {
+    // Run migrations first
+    await runMigrations();
+    
+    // Setup Remix handler
+    const requestHandler = await setupRemix();
+    
     // Handle all other requests with Remix
     app.all('*', requestHandler);
     
@@ -46,8 +69,10 @@ setupRemix()
     app.listen(port, () => {
       console.log(`Server running on port ${port}`);
     });
-  })
-  .catch((error) => {
+  } catch (error) {
     console.error('Server startup failed:', error);
     process.exit(1);
-  });
+  }
+}
+
+startServer();
