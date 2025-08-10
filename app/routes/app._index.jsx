@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useFetcher } from "@remix-run/react";
+import { useFetcher, useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -69,87 +69,97 @@ export const loader = async ({ request }) => {
           } else if (!existingShop.isActive || existingShop.uninstalledAt) {
             // Shop exists but was uninstalled - this is a reinstallation
             isReinstallation = true;
-        }
-        
-        // Always ensure shop data is current with latest session info
-        const shopData = await db.default.shop.upsert({
-          where: { shopDomain: session.shop },
-          update: {
-            accessToken: session.accessToken,
-            isActive: true,
-            uninstalledAt: null, // Clear uninstall timestamp
-            tokenVersion: isReinstallation ? { increment: 1 } : undefined
-          },
-          create: {
-            shopDomain: session.shop,
-            accessToken: session.accessToken,
-            installedAt: new Date(),
-            isActive: true,
-            tokenVersion: 1
           }
-        });
-        
-        // Log based on scenario
-        if (isNewInstallation) {
-          console.log(`💾 NEW INSTALLATION: ${session.shop} (ID: ${shopData.id})`);
           
-          await db.default.installationLog.create({
-            data: {
+          // Always ensure shop data is current with latest session info
+          const shopData = await db.default.shop.upsert({
+            where: { shopDomain: session.shop },
+            update: {
+              accessToken: session.accessToken,
+              isActive: true,
+              uninstalledAt: null, // Clear uninstall timestamp
+              tokenVersion: isReinstallation ? { increment: 1 } : undefined
+            },
+            create: {
               shopDomain: session.shop,
-              action: "SHOP_INSTALLED",
-              metadata: {
-                shopId: shopData.id,
-                tokenVersion: shopData.tokenVersion,
-                scopes: session.scope,
-                sessionId: session.id,
-                timestamp: new Date().toISOString(),
-                clientType: "new"
-              }
+              accessToken: session.accessToken,
+              installedAt: new Date(),
+              isActive: true,
+              tokenVersion: 1
             }
           });
           
-        } else if (isReinstallation) {
-          console.log(`🔄 REINSTALLATION: ${session.shop} (ID: ${shopData.id}, Version: ${shopData.tokenVersion})`);
-          
-          await db.default.installationLog.create({
-            data: {
-              shopDomain: session.shop,
-              action: "SHOP_REINSTALLED",
-              metadata: {
-                shopId: shopData.id,
-                tokenVersion: shopData.tokenVersion,
-                scopes: session.scope,
-                sessionId: session.id,
-                timestamp: new Date().toISOString(),
-                previouslyUninstalledAt: existingShop?.uninstalledAt?.toISOString(),
-                clientType: "returning"
+          // Log based on scenario
+          if (isNewInstallation) {
+            console.log(`💾 NEW INSTALLATION: ${session.shop} (ID: ${shopData.id})`);
+            
+            await db.default.installationLog.create({
+              data: {
+                shopDomain: session.shop,
+                action: "SHOP_INSTALLED",
+                metadata: {
+                  shopId: shopData.id,
+                  tokenVersion: shopData.tokenVersion,
+                  scopes: session.scope,
+                  sessionId: session.id,
+                  timestamp: new Date().toISOString(),
+                  clientType: "new"
+                }
               }
-            }
-          });
+            });
+            
+          } else if (isReinstallation) {
+            console.log(`🔄 REINSTALLATION: ${session.shop} (ID: ${shopData.id}, Version: ${shopData.tokenVersion})`);
+            
+            await db.default.installationLog.create({
+              data: {
+                shopDomain: session.shop,
+                action: "SHOP_REINSTALLED",
+                metadata: {
+                  shopId: shopData.id,
+                  tokenVersion: shopData.tokenVersion,
+                  scopes: session.scope,
+                  sessionId: session.id,
+                  timestamp: new Date().toISOString(),
+                  previouslyUninstalledAt: existingShop?.uninstalledAt?.toISOString(),
+                  clientType: "returning"
+                }
+              }
+            });
+            
+          } else {
+            // Existing active shop - just ensure token is fresh
+            console.log(`✅ ACTIVE CLIENT: ${session.shop} - token refreshed`);
+          }
           
-        } else {
-          // Existing active shop - just ensure token is fresh
-          console.log(`✅ ACTIVE CLIENT: ${session.shop} - token refreshed`);
+        } catch (dbError) {
+          console.error("❌ Database error during shop data sync:", dbError);
+          console.error("   Shop:", session.shop);
+          console.error("   Session ID:", session.id);
+          // Log but don't fail the app
         }
-        
-      } catch (dbError) {
-        console.error("❌ Database error during shop data sync:", dbError);
-        console.error("   Shop:", session.shop);
-        console.error("   Session ID:", session.id);
-        // Log but don't fail the app
       }
+      
+      // If it's a fresh install and user hasn't seen welcome page, redirect
+      const url = new URL(request.url);
+      const hasSeenWelcome = url.searchParams.get("welcomed") === "true";
+      
+      if (verification.isFresh && !hasSeenWelcome) {
+        console.log("🚀 Redirecting to welcome page for fresh installation");
+        return redirect("/app/welcome");
+      }
+      
+    } catch (error) {
+      console.log("Fresh installation check failed:", error);
     }
     
-    // If it's a fresh install and user hasn't seen welcome page, redirect
-    const url = new URL(request.url);
-    const hasSeenWelcome = url.searchParams.get("welcomed") === "true";
+    // Return data for the dashboard - THIS WAS MISSING!
+    console.log("✅ Returning dashboard data for app index");
+    return {
+      shop: session.shop,
+      hasToken: !!session.accessToken
+    };
     
-    if (verification.isFresh && !hasSeenWelcome) {
-      return redirect("/app/welcome");
-    }
-  } catch (error) {
-    console.log("Fresh installation check failed:", error);
-  }
   } catch (authError) {
     console.error("❌ Authentication failed in app index:", authError);
     console.error("📋 Auth error details:", {
@@ -159,8 +169,6 @@ export const loader = async ({ request }) => {
     });
     throw authError;
   }
-
-  return null;
 };
 
 export const action = async ({ request }) => {
@@ -231,6 +239,8 @@ export const action = async ({ request }) => {
 export default function Index() {
   const fetcher = useFetcher();
   const shopify = useAppBridge();
+  const loaderData = useLoaderData(); // Add this to get loader data
+  
   const isLoading =
     ["loading", "submitting"].includes(fetcher.state) &&
     fetcher.formMethod === "POST";
@@ -244,11 +254,12 @@ export default function Index() {
       shopify.toast.show("Product created");
     }
   }, [productId, shopify]);
+  
   const generateProduct = () => fetcher.submit({}, { method: "POST" });
 
   return (
     <Page>
-      <TitleBar title="Jarvis AI Assistant Dashboard">
+      <TitleBar title={`Jarvis AI Assistant Dashboard${loaderData?.shop ? ` - ${loaderData.shop}` : ''}`}>
         <button variant="primary" onClick={generateProduct}>
           Generate a product
         </button>
