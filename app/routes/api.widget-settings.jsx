@@ -1,11 +1,24 @@
 import { json } from "@remix-run/node";
 
+// Utility to add CORS headers to all responses
+function withCORS(response, status = 200) {
+  return new Response(response.body, {
+    status: response.status || status,
+    headers: {
+      ...Object.fromEntries(response.headers),
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type,Authorization"
+    }
+  });
+}
+
 export async function action({ request }) {
   const url = new URL(request.url);
   const shopDomain = url.searchParams.get("shop");
-  
+
   if (!shopDomain) {
-    return json({ error: "Shop parameter required" }, { status: 400 });
+    return withCORS(json({ error: "Shop parameter required" }, { status: 400 }));
   }
 
   const { PrismaClient } = await import("@prisma/client");
@@ -24,10 +37,10 @@ export async function action({ request }) {
       }
     });
 
-    return json({ success: true, settings: updatedSettings });
+    return withCORS(json({ success: true, settings: updatedSettings }));
   } catch (error) {
     console.error("Error saving widget settings:", error);
-    return json({ error: "Failed to save settings" }, { status: 500 });
+    return withCORS(json({ error: "Failed to save settings" }, { status: 500 }));
   } finally {
     await prisma.$disconnect();
   }
@@ -36,19 +49,19 @@ export async function action({ request }) {
 export async function loader({ request }) {
   const url = new URL(request.url);
   const shopDomain = url.searchParams.get("shop");
-  
+
   if (!shopDomain) {
-    return json({ error: "Shop parameter required" }, { status: 400 });
+    return withCORS(json({ error: "Shop parameter required" }, { status: 400 }));
   }
-  
+
   const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient();
-  
+
   try {
     let settings = await prisma.widgetSettings.findUnique({
       where: { shopDomain }
     });
-    
+
     // If no settings exist, return defaults
     if (!settings) {
       settings = {
@@ -56,7 +69,7 @@ export async function loader({ request }) {
         secondaryColor: "#0056b3",
         buttonSize: "60px",
         position: "bottom-right",
-        buttonIcon: "💬",
+        buttonIcon: "\uD83D\uDCAC",
         windowWidth: "320px",
         windowHeight: "420px",
         headerText: "Jarvis AI Chatbot",
@@ -69,11 +82,11 @@ export async function loader({ request }) {
         isEnabled: true
       };
     }
-    
-    return json({ settings });
+
+    return withCORS(json({ settings }));
   } catch (error) {
     console.error("Error fetching widget settings:", error);
-    return json({ error: "Failed to fetch settings" }, { status: 500 });
+    return withCORS(json({ error: "Failed to fetch settings" }, { status: 500 }));
   } finally {
     await prisma.$disconnect();
   }
