@@ -20,7 +20,7 @@ function verifyWebhookSignature(body, signature, secret) {
     
     // Shopify sends HMAC as base64, calculate our own
     const hmac = createHmac('sha256', secret);
-    hmac.update(body, 'utf8');
+    hmac.update(body); // Use buffer, not string
     const calculatedSignature = hmac.digest('base64');
     
     console.log(`   Calculated: ${calculatedSignature}`);
@@ -79,13 +79,18 @@ export const action = async ({ request }) => {
   console.log(`   HMAC Present: ${hmacHeader ? 'Yes' : 'No'}`);
 
   // Get request body for HMAC verification
-  let bodyText = '';
+  let rawBody;
   try {
-    bodyText = await clonedRequest.text();
-    console.log(`🔔 WEBHOOK BODY:`, bodyText);
+    rawBody = new Uint8Array(await request.arrayBuffer());
+    console.log(`🔔 WEBHOOK RAW BODY LENGTH:`, rawBody.length);
   } catch (e) {
     console.log(`🔔 Could not read webhook body:`, e.message);
+    rawBody = new Uint8Array();
   }
+
+  // Convert raw body to string for logging
+  const bodyText = Buffer.from(rawBody).toString('utf8');
+  console.log(`🔔 WEBHOOK BODY:`, bodyText);
 
   // Verify HMAC signature if available
   const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
@@ -99,7 +104,7 @@ export const action = async ({ request }) => {
   if (hmacHeader) {
     // Try webhook secret first
     if (webhookSecret) {
-      hmacValid = verifyWebhookSignature(bodyText, hmacHeader, webhookSecret);
+      hmacValid = verifyWebhookSignature(rawBody, hmacHeader, webhookSecret);
       if (hmacValid) {
         console.log(`✅ HMAC signature verified with webhook secret`);
       } else {
@@ -108,7 +113,7 @@ export const action = async ({ request }) => {
         // Try with client secret as fallback
         if (clientSecret) {
           console.log(`🔄 Trying with client secret...`);
-          hmacValid = verifyWebhookSignature(bodyText, hmacHeader, clientSecret);
+          hmacValid = verifyWebhookSignature(rawBody, hmacHeader, clientSecret);
           if (hmacValid) {
             console.log(`✅ HMAC signature verified with client secret`);
           } else {
