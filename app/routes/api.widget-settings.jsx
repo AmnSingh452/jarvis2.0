@@ -81,6 +81,9 @@ export async function loader({ request }) {
         customCSS: "",
         isEnabled: true
       };
+    } else {
+      // Force enable for testing
+      settings.isEnabled = true;
     }
 
     return withCORS(json({ settings }));
