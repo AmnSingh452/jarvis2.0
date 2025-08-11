@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useFetcher, useLoaderData } from "@remix-run/react";
+import { useFetcher } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -18,157 +18,129 @@ import { redirect } from "@remix-run/node";
 
 export const loader = async ({ request }) => {
   console.log("🏠 App index route accessed");
-  console.log("📍 Request URL:", request.url);
-  console.log("📍 Request headers:", {
-    userAgent: request.headers.get('user-agent'),
-    referer: request.headers.get('referer'),
-    host: request.headers.get('host'),
-    authorization: request.headers.get('authorization') ? 'Present' : 'Missing'
+  
+  const { session } = await authenticate.admin(request);
+  console.log(`📍 App index session:`, {
+    shop: session?.shop,
+    hasToken: !!session?.accessToken,
+    scopes: session?.scope
   });
   
+  // Check if this is a fresh installation
   try {
-    console.log("🔐 Starting authentication...");
-    const { session } = await authenticate.admin(request);
-    console.log(`📍 App index session:`, {
-      shop: session?.shop,
-      hasToken: !!session?.accessToken,
-      scopes: session?.scope,
-      isOnline: session?.isOnline,
-      userId: session?.userId
+    const { verifyFreshInstallation } = await import("../../cleanup-db.js");
+    const verification = await verifyFreshInstallation(session.shop);
+    
+    console.log(`🔍 Fresh installation check:`, {
+      shop: session.shop,
+      isFreshInstall: verification.isFresh,
+      oldSessions: verification.oldSessions,
+      oldShops: verification.oldShops
     });
-  
-    // Check if this is a fresh installation
-    try {
-      const { verifyFreshInstallation } = await import("../../cleanup-db.js");
-      const verification = await verifyFreshInstallation(session.shop);
-      
-      console.log(`🔍 Fresh installation check:`, {
-        shop: session.shop,
-        isFreshInstall: verification.isFresh,
-        oldSessions: verification.oldSessions,
-        oldShops: verification.oldShops
-      });
 
-      // PRODUCTION-READY: Use session data to maintain shop records
-      // This handles multiple clients and reinstallation scenarios
-      if (session && session.accessToken) {
-        try {
-          const db = await import("../db.server");
-          
-          // Check if shop exists and its status
-          const existingShop = await db.default.shop.findUnique({
-            where: { shopDomain: session.shop }
-          });
-          
-          let isNewInstallation = false;
-          let isReinstallation = false;
-          
-          if (!existingShop) {
-            // Completely new shop
-            isNewInstallation = true;
-          } else if (!existingShop.isActive || existingShop.uninstalledAt) {
-            // Shop exists but was uninstalled - this is a reinstallation
-            isReinstallation = true;
+    // PRODUCTION-READY: Use session data to maintain shop records
+    // This handles multiple clients and reinstallation scenarios
+    if (session && session.accessToken) {
+      try {
+        const db = await import("../db.server");
+        
+        // Check if shop exists and its status
+        const existingShop = await db.default.shop.findUnique({
+          where: { shopDomain: session.shop }
+        });
+        
+        let isNewInstallation = false;
+        let isReinstallation = false;
+        
+        if (!existingShop) {
+          // Completely new shop
+          isNewInstallation = true;
+        } else if (!existingShop.isActive || existingShop.uninstalledAt) {
+          // Shop exists but was uninstalled - this is a reinstallation
+          isReinstallation = true;
+        }
+        
+        // Always ensure shop data is current with latest session info
+        const shopData = await db.default.shop.upsert({
+          where: { shopDomain: session.shop },
+          update: {
+            accessToken: session.accessToken,
+            isActive: true,
+            uninstalledAt: null, // Clear uninstall timestamp
+            tokenVersion: isReinstallation ? { increment: 1 } : undefined
+          },
+          create: {
+            shopDomain: session.shop,
+            accessToken: session.accessToken,
+            installedAt: new Date(),
+            isActive: true,
+            tokenVersion: 1
           }
+        });
+        
+        // Log based on scenario
+        if (isNewInstallation) {
+          console.log(`💾 NEW INSTALLATION: ${session.shop} (ID: ${shopData.id})`);
           
-          // Always ensure shop data is current with latest session info
-          const shopData = await db.default.shop.upsert({
-            where: { shopDomain: session.shop },
-            update: {
-              accessToken: session.accessToken,
-              isActive: true,
-              uninstalledAt: null, // Clear uninstall timestamp
-              tokenVersion: isReinstallation ? { increment: 1 } : undefined
-            },
-            create: {
+          await db.default.installationLog.create({
+            data: {
               shopDomain: session.shop,
-              accessToken: session.accessToken,
-              installedAt: new Date(),
-              isActive: true,
-              tokenVersion: 1
+              action: "SHOP_INSTALLED",
+              metadata: {
+                shopId: shopData.id,
+                tokenVersion: shopData.tokenVersion,
+                scopes: session.scope,
+                sessionId: session.id,
+                timestamp: new Date().toISOString(),
+                clientType: "new"
+              }
             }
           });
           
-          // Log based on scenario
-          if (isNewInstallation) {
-            console.log(`💾 NEW INSTALLATION: ${session.shop} (ID: ${shopData.id})`);
-            
-            await db.default.installationLog.create({
-              data: {
-                shopDomain: session.shop,
-                action: "SHOP_INSTALLED",
-                metadata: {
-                  shopId: shopData.id,
-                  tokenVersion: shopData.tokenVersion,
-                  scopes: session.scope,
-                  sessionId: session.id,
-                  timestamp: new Date().toISOString(),
-                  clientType: "new"
-                }
-              }
-            });
-            
-          } else if (isReinstallation) {
-            console.log(`🔄 REINSTALLATION: ${session.shop} (ID: ${shopData.id}, Version: ${shopData.tokenVersion})`);
-            
-            await db.default.installationLog.create({
-              data: {
-                shopDomain: session.shop,
-                action: "SHOP_REINSTALLED",
-                metadata: {
-                  shopId: shopData.id,
-                  tokenVersion: shopData.tokenVersion,
-                  scopes: session.scope,
-                  sessionId: session.id,
-                  timestamp: new Date().toISOString(),
-                  previouslyUninstalledAt: existingShop?.uninstalledAt?.toISOString(),
-                  clientType: "returning"
-                }
-              }
-            });
-            
-          } else {
-            // Existing active shop - just ensure token is fresh
-            console.log(`✅ ACTIVE CLIENT: ${session.shop} - token refreshed`);
-          }
+        } else if (isReinstallation) {
+          console.log(`🔄 REINSTALLATION: ${session.shop} (ID: ${shopData.id}, Version: ${shopData.tokenVersion})`);
           
-        } catch (dbError) {
-          console.error("❌ Database error during shop data sync:", dbError);
-          console.error("   Shop:", session.shop);
-          console.error("   Session ID:", session.id);
-          // Log but don't fail the app
+          await db.default.installationLog.create({
+            data: {
+              shopDomain: session.shop,
+              action: "SHOP_REINSTALLED",
+              metadata: {
+                shopId: shopData.id,
+                tokenVersion: shopData.tokenVersion,
+                scopes: session.scope,
+                sessionId: session.id,
+                timestamp: new Date().toISOString(),
+                previouslyUninstalledAt: existingShop?.uninstalledAt?.toISOString(),
+                clientType: "returning"
+              }
+            }
+          });
+          
+        } else {
+          // Existing active shop - just ensure token is fresh
+          console.log(`✅ ACTIVE CLIENT: ${session.shop} - token refreshed`);
         }
+        
+      } catch (dbError) {
+        console.error("❌ Database error during shop data sync:", dbError);
+        console.error("   Shop:", session.shop);
+        console.error("   Session ID:", session.id);
+        // Log but don't fail the app
       }
-      
-      // If it's a fresh install and user hasn't seen welcome page, redirect
-      const url = new URL(request.url);
-      const hasSeenWelcome = url.searchParams.get("welcomed") === "true";
-      
-      if (verification.isFresh && !hasSeenWelcome) {
-        console.log("🚀 Redirecting to welcome page for fresh installation");
-        return redirect("/app/welcome");
-      }
-      
-    } catch (error) {
-      console.log("Fresh installation check failed:", error);
     }
     
-    // Return data for the dashboard - THIS WAS MISSING!
-    console.log("✅ Returning dashboard data for app index");
-    return {
-      shop: session.shop,
-      hasToken: !!session.accessToken
-    };
+    // If it's a fresh install and user hasn't seen welcome page, redirect
+    const url = new URL(request.url);
+    const hasSeenWelcome = url.searchParams.get("welcomed") === "true";
     
-  } catch (authError) {
-    console.error("❌ Authentication failed in app index:", authError);
-    console.error("📋 Auth error details:", {
-      name: authError.name,
-      message: authError.message,
-      stack: authError.stack?.substring(0, 500)
-    });
-    throw authError;
+    if (verification.isFresh && !hasSeenWelcome) {
+      return redirect("/app/welcome");
+    }
+  } catch (error) {
+    console.log("Fresh installation check failed:", error);
   }
+
+  return null;
 };
 
 export const action = async ({ request }) => {
@@ -239,8 +211,6 @@ export const action = async ({ request }) => {
 export default function Index() {
   const fetcher = useFetcher();
   const shopify = useAppBridge();
-  const loaderData = useLoaderData(); // Add this to get loader data
-  
   const isLoading =
     ["loading", "submitting"].includes(fetcher.state) &&
     fetcher.formMethod === "POST";
@@ -254,12 +224,11 @@ export default function Index() {
       shopify.toast.show("Product created");
     }
   }, [productId, shopify]);
-  
   const generateProduct = () => fetcher.submit({}, { method: "POST" });
 
   return (
     <Page>
-      <TitleBar title={`Jarvis AI Assistant Dashboard${loaderData?.shop ? ` - ${loaderData.shop}` : ''}`}>
+      <TitleBar title="Jarvis AI Assistant Dashboard">
         <button variant="primary" onClick={generateProduct}>
           Generate a product
         </button>
@@ -298,34 +267,14 @@ export default function Index() {
                     <Card background="bg-surface-secondary">
                       <BlockStack gap="300">
                         <Text as="h3" variant="headingMd">
-                          � Analytics Dashboard
+                          💳 Billing & Plans
                         </Text>
                         <Text variant="bodyMd" as="p">
-                          Monitor chatbot performance, track conversions, and gain insights into customer interactions.
+                          Manage your subscription, view usage analytics, and upgrade your plan for more features.
                         </Text>
                         <InlineStack gap="200">
                           <Button 
-                            url="/app/analytics" 
-                            variant="primary"
-                          >
-                            View Analytics
-                          </Button>
-                        </InlineStack>
-                      </BlockStack>
-                    </Card>
-                  </Layout.Section>
-                  <Layout.Section variant="oneHalf">
-                    <Card background="bg-surface-secondary">
-                      <BlockStack gap="300">
-                        <Text as="h3" variant="headingMd">
-                          �💳 Billing & Plans
-                        </Text>
-                        <Text variant="bodyMd" as="p">
-                          Manage your subscription, view usage analytics, and configure your plan settings.
-                        </Text>
-                        <InlineStack gap="200">
-                          <Button 
-                            url="/app/billing_v2" 
+                            url="/app/billing" 
                             variant="primary"
                           >
                             Manage Billing
@@ -572,19 +521,13 @@ export default function Index() {
                       - Customize appearance, colors, and behavior
                     </List.Item>
                     <List.Item>
-                      <Link url="/app/analytics" removeUnderline>
-                        Analytics Dashboard
-                      </Link>{" "}
-                      - Monitor performance and customer insights
-                    </List.Item>
-                    <List.Item>
                       <Link url="/app/welcome" removeUnderline>
                         Welcome Guide
                       </Link>{" "}
                       - Get started with Jarvis features
                     </List.Item>
                     <List.Item>
-                      <Link url="/app/billing_v2" removeUnderline>
+                      <Link url="/app/billing" removeUnderline>
                         Billing & Plans
                       </Link>{" "}
                       - Manage subscription and usage
@@ -618,41 +561,6 @@ export default function Index() {
                         removeUnderline
                       >
                         GraphiQL
-                      </Link>
-                    </List.Item>
-                  </List>
-                </BlockStack>
-              </Card>
-              
-              {/* Debug Tools - Development Only */}
-              <Card>
-                <BlockStack gap="200">
-                  <Text as="h2" variant="headingMd">
-                    🔧 Debug Tools
-                  </Text>
-                  <List>
-                    <List.Item>
-                      <Link
-                        url="/debug/uninstall-test?action=check-webhooks"
-                        removeUnderline
-                      >
-                        Check Webhook Registration
-                      </Link>
-                    </List.Item>
-                    <List.Item>
-                      <Link
-                        url="/debug/uninstall-test?action=status&shop=aman-chatbot-test.myshopify.com"
-                        removeUnderline
-                      >
-                        Check Shop Status
-                      </Link>
-                    </List.Item>
-                    <List.Item>
-                      <Link
-                        url="/debug/uninstall-test"
-                        removeUnderline
-                      >
-                        Debug Dashboard
                       </Link>
                     </List.Item>
                   </List>

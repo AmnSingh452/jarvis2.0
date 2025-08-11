@@ -14,18 +14,13 @@ installGlobals();
 
 const app = express();
 
-// CORS configuration for Shopify
-app.use((req, res, next) => {
+// CORS for static assets and health endpoints only
+app.use('/assets', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-    return;
-  }
-  
+  next();
+});
+app.use('/health', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
   next();
 });
 
@@ -40,6 +35,18 @@ app.use(express.static(path.join(__dirname, 'build/client')));
 // Health check endpoint - respond to both GET and HEAD
 app.all('/health', (req, res) => {
   console.log(`Health check accessed via ${req.method}`);
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Handle timestamped health checks (like those from Shopify)
+app.all('/health/:timestamp', (req, res) => {
+  console.log(`Timestamped health check: ${req.params.timestamp}`);
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Handle any other health-related endpoints
+app.all('**/health**', (req, res) => {
+  console.log(`Generic health check: ${req.url}`);
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 

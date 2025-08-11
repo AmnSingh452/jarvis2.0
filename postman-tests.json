@@ -1,0 +1,199 @@
+{
+  "info": {
+    "name": "Jarvis 2.0 Chatbot API Tests",
+    "description": "Complete test suite for Jarvis AI Chatbot Shopify App",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://jarvis2-0-djg1.onrender.com/health",
+          "protocol": "https",
+          "host": ["jarvis2-0-djg1", "onrender", "com"],
+          "path": ["health"]
+        },
+        "description": "Basic health check to verify server is running"
+      },
+      "response": []
+    },
+    {
+      "name": "Chat API Test",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Hello, can you help me with product recommendations?\",\n  \"shop\": \"test-shop.myshopify.com\",\n  \"sessionId\": \"test-session-123\",\n  \"customerName\": \"Test Customer\",\n  \"customerEmail\": \"test@example.com\"\n}"
+        },
+        "url": {
+          "raw": "https://jarvis2-0-djg1.onrender.com/api/chat",
+          "protocol": "https",
+          "host": ["jarvis2-0-djg1", "onrender", "com"],
+          "path": ["api", "chat"]
+        },
+        "description": "Test chat functionality with AI assistant"
+      },
+      "response": []
+    },
+    {
+      "name": "Widget Config",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://jarvis2-0-djg1.onrender.com/api/widget-config?shop=test-shop.myshopify.com",
+          "protocol": "https",
+          "host": ["jarvis2-0-djg1", "onrender", "com"],
+          "path": ["api", "widget-config"],
+          "query": [
+            {
+              "key": "shop",
+              "value": "test-shop.myshopify.com"
+            }
+          ]
+        },
+        "description": "Get widget configuration for a shop"
+      },
+      "response": []
+    },
+    {
+      "name": "Analytics Data",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://jarvis2-0-djg1.onrender.com/api/analytics-data?shop=test-shop.myshopify.com&days=30",
+          "protocol": "https",
+          "host": ["jarvis2-0-djg1", "onrender", "com"],
+          "path": ["api", "analytics-data"],
+          "query": [
+            {
+              "key": "shop",
+              "value": "test-shop.myshopify.com"
+            },
+            {
+              "key": "days",
+              "value": "30"
+            }
+          ]
+        },
+        "description": "Get analytics data for the last 30 days"
+      },
+      "response": []
+    },
+    {
+      "name": "Widget Settings Update",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shop\": \"test-shop.myshopify.com\",\n  \"primaryColor\": \"#007bff\",\n  \"secondaryColor\": \"#0056b3\",\n  \"buttonSize\": \"60px\",\n  \"position\": \"bottom-right\",\n  \"welcomeMessage\": \"Hello! How can I help you today?\",\n  \"isEnabled\": true\n}"
+        },
+        "url": {
+          "raw": "https://jarvis2-0-djg1.onrender.com/api/widget-settings",
+          "protocol": "https",
+          "host": ["jarvis2-0-djg1", "onrender", "com"],
+          "path": ["api", "widget-settings"]
+        },
+        "description": "Update widget settings for a shop"
+      },
+      "response": []
+    },
+    {
+      "name": "CORS Preflight Test",
+      "request": {
+        "method": "OPTIONS",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "https://admin.shopify.com"
+          },
+          {
+            "key": "Access-Control-Request-Method",
+            "value": "POST"
+          },
+          {
+            "key": "Access-Control-Request-Headers",
+            "value": "Content-Type"
+          }
+        ],
+        "url": {
+          "raw": "https://jarvis2-0-djg1.onrender.com/api/chat",
+          "protocol": "https",
+          "host": ["jarvis2-0-djg1", "onrender", "com"],
+          "path": ["api", "chat"]
+        },
+        "description": "Test CORS preflight request for Shopify embedding"
+      },
+      "response": []
+    },
+    {
+      "name": "App Installation Test",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "User-Agent",
+            "value": "Shopify/1.0"
+          }
+        ],
+        "url": {
+          "raw": "https://jarvis2-0-djg1.onrender.com/api/installation?shop=test-shop.myshopify.com",
+          "protocol": "https",
+          "host": ["jarvis2-0-djg1", "onrender", "com"],
+          "path": ["api", "installation"],
+          "query": [
+            {
+              "key": "shop",
+              "value": "test-shop.myshopify.com"
+            }
+          ]
+        },
+        "description": "Test installation status check"
+      },
+      "response": []
+    },
+    {
+      "name": "Root App Access",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://jarvis2-0-djg1.onrender.com/",
+          "protocol": "https",
+          "host": ["jarvis2-0-djg1", "onrender", "com"],
+          "path": [""]
+        },
+        "description": "Test root app access and HTML response"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://jarvis2-0-djg1.onrender.com",
+      "type": "string"
+    },
+    {
+      "key": "test_shop",
+      "value": "test-shop.myshopify.com",
+      "type": "string"
+    }
+  ]
+}
