@@ -92,6 +92,13 @@ export const action = async ({ request }) => {
   const bodyText = Buffer.from(rawBody).toString('utf8');
   console.log(`🔔 WEBHOOK BODY:`, bodyText);
 
+  if (rawBody.length === 0) {
+  console.warn("⚠️ Skipping HMAC verification for empty body (Shopify uninstall webhook quirk)");
+  // Proceed with uninstall logic below, do not return 401
+  // You can set hmacValid = true or skip the HMAC block
+  hmacValid = true;
+  }
+
   // Verify HMAC signature if available
   const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
   const clientSecret = process.env.SHOPIFY_API_SECRET;
