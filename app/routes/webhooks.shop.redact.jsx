@@ -77,9 +77,10 @@ export const action = async ({ request }) => {
     
     if (body.length === 0) {
       console.warn("⚠️ Skipping HMAC verification for empty body (Shopify compliance webhook quirk)");
+      hmacValid = true;
       // Proceed with webhook logic, do not return 401
     }
-    
+
     if (hmacHeader) {
       // Try webhook secret first
       if (webhookSecret) {
