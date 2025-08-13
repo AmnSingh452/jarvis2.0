@@ -95,8 +95,8 @@ export const action = async ({ request }) => {
   if (rawBody.length === 0) {
   console.warn("⚠️ Skipping HMAC verification for empty body (Shopify uninstall webhook quirk)");
   // Proceed with uninstall logic below, do not return 401
-  // You can set hmacValid = true or skip the HMAC block
-  hmacValid = true;
+  
+  let hmacValid = true; // You can set hmacValid = true or skip the HMAC block
   }
 
   // Verify HMAC signature if available
@@ -108,7 +108,7 @@ export const action = async ({ request }) => {
   console.log(`   SHOPIFY_WEBHOOK_SECRET: ${webhookSecret ? 'SET' : 'NOT SET'}`);
   console.log(`   SHOPIFY_API_SECRET: ${clientSecret ? 'SET' : 'NOT SET'}`);
   
-  let hmacValid = false;
+  hmacValid = false;
   if (body.length === 0) {
     console.warn("⚠️ Skipping HMAC verification for empty body (Shopify compliance webhook quirk)");
     hmacValid = true;
@@ -136,6 +136,7 @@ export const action = async ({ request }) => {
         }
       }
     } else if (clientSecret) {
+      
       // Only client secret available
       hmacValid = verifyWebhookSignature(bodyText, hmacHeader, clientSecret);
       if (hmacValid) {
