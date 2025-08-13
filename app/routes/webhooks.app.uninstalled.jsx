@@ -92,6 +92,7 @@ export const action = async ({ request }) => {
   const bodyText = Buffer.from(rawBody).toString('utf8');
   console.log(`🔔 WEBHOOK BODY:`, bodyText);
 
+  let hmacValid = false;
   if (rawBody.length === 0) {
   console.warn("⚠️ Skipping HMAC verification for empty body (Shopify uninstall webhook quirk)");
   // Proceed with uninstall logic below, do not return 401
@@ -107,13 +108,6 @@ export const action = async ({ request }) => {
   console.log(`🔐 Secret Debug:`);
   console.log(`   SHOPIFY_WEBHOOK_SECRET: ${webhookSecret ? 'SET' : 'NOT SET'}`);
   console.log(`   SHOPIFY_API_SECRET: ${clientSecret ? 'SET' : 'NOT SET'}`);
-  
-  let hmacValid = false;
-  if (body.length === 0) {
-    console.warn("⚠️ Skipping HMAC verification for empty body (Shopify compliance webhook quirk)");
-    hmacValid = true;
-    // Proceed with webhook logic, do not return 401
-  }
 
   if (hmacHeader) {
     // Try webhook secret first
