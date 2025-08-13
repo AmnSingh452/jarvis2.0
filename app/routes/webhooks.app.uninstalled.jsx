@@ -65,34 +65,9 @@ export const action = async ({ request }) => {
   console.log(`🔔 WEBHOOK RAW BODY LENGTH: ${rawBody.length}`);
   console.log(`🔔 WEBHOOK BODY: ${Buffer.from(rawBody).toString("utf8")}`);
 
-<<<<<<< HEAD
-  // Convert raw body to string for logging
-  const bodyText = Buffer.from(rawBody).toString('utf8');
-  console.log(`🔔 WEBHOOK BODY:`, bodyText);
-
-  let hmacValid = false;
-  if (rawBody.length === 0) {
-  console.warn("⚠️ Skipping HMAC verification for empty body (Shopify uninstall webhook quirk)");
-  // Proceed with uninstall logic below, do not return 401
-  
-  let hmacValid = true; // You can set hmacValid = true or skip the HMAC block
-  }
-
-  // Verify HMAC signature if available
-  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
-  const clientSecret = process.env.SHOPIFY_API_SECRET;
-  
-  
-  console.log(`🔐 Secret Debug:`);
-  console.log(`   SHOPIFY_WEBHOOK_SECRET: ${webhookSecret ? 'SET' : 'NOT SET'}`);
-  console.log(`   SHOPIFY_API_SECRET: ${clientSecret ? 'SET' : 'NOT SET'}`);
-  
-  
-=======
   const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
   const clientSecret = process.env.SHOPIFY_API_SECRET;
   let hmacValid = false;
->>>>>>> 430050b (jarvis2: fixed uninstall webhook)
 
   // ✅ Skip HMAC for empty uninstall webhooks
   if (topicHeader === "app/uninstalled" && rawBody.length === 0) {
