@@ -109,12 +109,7 @@ export const action = async ({ request }) => {
   console.log(`   SHOPIFY_WEBHOOK_SECRET: ${webhookSecret ? 'SET' : 'NOT SET'}`);
   console.log(`   SHOPIFY_API_SECRET: ${clientSecret ? 'SET' : 'NOT SET'}`);
   
-  let hmacValid = false;
-  if (body.length === 0) {
-    console.warn("⚠️ Skipping HMAC verification for empty body (Shopify compliance webhook quirk)");
-    hmacValid = true;
-    // Proceed with webhook logic, do not return 401
-  }
+  
 
   if (hmacHeader) {
     // Try webhook secret first
