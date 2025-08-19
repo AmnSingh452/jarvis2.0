@@ -24,7 +24,7 @@ export async function options() {
 export async function action({ request }) {
   try {
     // Parse the incoming request
-  const body = await request.text();
+  const body = JSON.stringify(await request.json());
   const contentType = request.headers.get("content-type");
   console.log("🔎 Raw request body:", body);
 
