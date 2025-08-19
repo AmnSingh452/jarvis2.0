@@ -24,8 +24,9 @@ export async function options() {
 export async function action({ request }) {
   try {
     // Parse the incoming request
-    const body = await request.text();
-    const contentType = request.headers.get("content-type");
+  const body = await request.text();
+  const contentType = request.headers.get("content-type");
+  console.log("🔎 Raw request body:", body);
 
     // Create cache key from request body
     const cacheKey = Buffer.from(body).toString('base64').slice(0, 50);
