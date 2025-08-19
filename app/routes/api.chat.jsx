@@ -93,6 +93,9 @@ export async function action({ request }) {
     }
 
     const responseData = await response.text();
+    if (response.status !== 200) {
+      console.error(`🔴 External API error response (${response.status}):`, responseData);
+    }
 
     // Cache successful responses
     if (response.status === 200) {
