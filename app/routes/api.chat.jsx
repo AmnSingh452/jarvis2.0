@@ -24,9 +24,9 @@ export async function options() {
 export async function action({ request }) {
   try {
     // Parse the incoming request
-  const body = JSON.stringify(await request.json());
-  const contentType = request.headers.get("content-type");
-  console.log("🔎 Raw request body:", body);
+    const body = JSON.stringify(await request.json());
+    const contentType = request.headers.get("content-type");
+    console.log("🔎 Raw request body:", body);
 
     // Create cache key from request body
     const cacheKey = Buffer.from(body).toString('base64').slice(0, 50);
@@ -92,7 +92,15 @@ export async function action({ request }) {
       }
     }
 
-    const responseData = await response.text();
+    const rawResponse = await response.text();
+    console.log("🔎 Raw external API response:", rawResponse);
+    let responseData;
+    try {
+      responseData = JSON.parse(rawResponse);
+    } catch (jsonErr) {
+      console.error("❌ Failed to parse external API response as JSON:", jsonErr);
+      responseData = rawResponse; // fallback to raw text
+    }
     if (response.status !== 200) {
       console.error(`🔴 External API error response (${response.status}):`, responseData);
     }
@@ -101,7 +109,7 @@ export async function action({ request }) {
     if (response.status === 200) {
       console.log("✅ Chat API responded successfully");
       chatCache.set(cacheKey, {
-        data: responseData,
+        data: JSON.stringify(responseData),
         timestamp: now
       });
 
@@ -134,7 +142,7 @@ export async function action({ request }) {
       return new Response(JSON.stringify({
         success: false,
         error: "Chat service unavailable",
-        data: null,
+        data: responseData,
         timestamp: new Date().toISOString()
       }), {
         status: response.status,
@@ -145,7 +153,7 @@ export async function action({ request }) {
       });
     }
 
-    return new Response(responseData, {
+    return new Response(JSON.stringify(responseData), {
       status: response.status,
       headers: {
         ...corsHeaders,
