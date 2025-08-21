@@ -95,11 +95,16 @@ export async function action({ request }) {
     const rawResponse = await response.text();
     console.log("🔎 Raw external API response:", rawResponse);
     let responseData;
-    try {
-      responseData = JSON.parse(rawResponse);
-    } catch (jsonErr) {
-      console.error("❌ Failed to parse external API response as JSON:", jsonErr);
-      responseData = rawResponse; // fallback to raw text
+    if (rawResponse && rawResponse.trim() !== "") {
+      try {
+        responseData = JSON.parse(rawResponse);
+      } catch (jsonErr) {
+        console.error("❌ Failed to parse external API response as JSON:", jsonErr);
+        responseData = rawResponse; // fallback to raw text
+      }
+    } else {
+      console.error("❌ External API returned empty response.");
+      responseData = null;
     }
     if (response.status !== 200) {
       console.error(`🔴 External API error response (${response.status}):`, responseData);
