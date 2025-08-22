@@ -23,16 +23,17 @@ export async function options() {
 // Handle POST requests for chat
 export async function action({ request }) {
   try {
-    // Check if request has a body
-    const requestText = await request.text();
-    console.log("🔎 Raw incoming request text:", requestText);
-    
-    if (!requestText || requestText.trim() === "") {
-      console.error("❌ Empty request body received");
+    // Parse the incoming request directly
+    let payload;
+    try {
+      payload = await request.json();
+      console.log("🔎 Parsed request payload:", payload);
+    } catch (parseError) {
+      console.error("❌ Invalid JSON in request body:", parseError);
       return json({
         success: false,
-        error: "Empty request body",
-        message: "Request body is required",
+        error: "Invalid JSON",
+        message: "Request body must be valid JSON",
         timestamp: new Date().toISOString()
       }, {
         status: 400,
@@ -40,16 +41,13 @@ export async function action({ request }) {
       });
     }
 
-    // Parse the incoming request
-    let payload;
-    try {
-      payload = JSON.parse(requestText);
-    } catch (parseError) {
-      console.error("❌ Invalid JSON in request body:", parseError);
+    // Check if payload is empty or missing required fields
+    if (!payload || typeof payload !== 'object') {
+      console.error("❌ Empty or invalid request payload");
       return json({
         success: false,
-        error: "Invalid JSON",
-        message: "Request body must be valid JSON",
+        error: "Empty request body",
+        message: "Request body is required",
         timestamp: new Date().toISOString()
       }, {
         status: 400,
