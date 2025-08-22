@@ -26,10 +26,30 @@ export async function action({ request }) {
     // Parse the incoming request directly
     let payload;
     try {
-      payload = await request.json();
+      const text = await request.text();
+      console.log("🔎 Raw request text:", JSON.stringify(text));
+      console.log("🔎 Raw request text length:", text.length);
+      console.log("🔎 Request content-type:", request.headers.get('content-type'));
+      console.log("🔎 Request method:", request.method);
+      
+      if (!text || text.trim() === "") {
+        console.error("❌ Empty request body received");
+        return json({
+          success: false,
+          error: "Empty request body",
+          message: "Request body is required",
+          timestamp: new Date().toISOString()
+        }, {
+          status: 400,
+          headers: corsHeaders
+        });
+      }
+      
+      payload = JSON.parse(text);
       console.log("🔎 Parsed request payload:", payload);
     } catch (parseError) {
       console.error("❌ Invalid JSON in request body:", parseError);
+      console.error("❌ Raw text that failed:", text);
       return json({
         success: false,
         error: "Invalid JSON",
