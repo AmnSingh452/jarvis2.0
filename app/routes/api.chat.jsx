@@ -23,10 +23,42 @@ export async function options() {
 // Handle POST requests for chat
 export async function action({ request }) {
   try {
+    // Check if request has a body
+    const requestText = await request.text();
+    console.log("🔎 Raw incoming request text:", requestText);
+    
+    if (!requestText || requestText.trim() === "") {
+      console.error("❌ Empty request body received");
+      return json({
+        success: false,
+        error: "Empty request body",
+        message: "Request body is required",
+        timestamp: new Date().toISOString()
+      }, {
+        status: 400,
+        headers: corsHeaders
+      });
+    }
+
     // Parse the incoming request
-    const payload = await request.json();
+    let payload;
+    try {
+      payload = JSON.parse(requestText);
+    } catch (parseError) {
+      console.error("❌ Invalid JSON in request body:", parseError);
+      return json({
+        success: false,
+        error: "Invalid JSON",
+        message: "Request body must be valid JSON",
+        timestamp: new Date().toISOString()
+      }, {
+        status: 400,
+        headers: corsHeaders
+      });
+    }
+
     const body = JSON.stringify(payload);
-    console.log("🔎 Raw request body:", body);
+    console.log("🔎 Parsed request body:", body);
 
     // Create cache key from request body
     const cacheKey = Buffer.from(body).toString('base64').slice(0, 50);
