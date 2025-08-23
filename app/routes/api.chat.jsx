@@ -23,57 +23,42 @@ export async function options() {
 // Handle POST requests for chat
 export async function action({ request }) {
   try {
-    console.log("🔎 Request method:", request.method);
-    console.log("🔎 Request content-type:", request.headers.get('content-type'));
-    
-    // Use the same approach as the working recommendations endpoint
+    // Use the EXACT same approach as the working recommendations endpoint
     const requestBody = await request.text();
+    const contentType = request.headers.get("content-type");
+    
     console.log("🔎 Raw request body:", requestBody);
     console.log("🔎 Body length:", requestBody?.length || 0);
+    console.log("🔎 Content-Type:", contentType);
     
-    // Validate body exists
-    if (!requestBody || requestBody.trim() === "") {
-      console.error("❌ Empty request body received");
+    // Only check for empty body and parse JSON if we need to validate the structure
+    let payload;
+    if (requestBody && requestBody.trim() !== "") {
+      try {
+        payload = JSON.parse(requestBody);
+        console.log("✅ Successfully parsed payload:", payload);
+      } catch (parseError) {
+        console.error("❌ JSON parse failed:", parseError.message);
+        return json({
+          success: false,
+          error: "Invalid JSON format",
+          message: "Request body must be valid JSON",
+          debug: {
+            receivedBody: requestBody.substring(0, 200),
+            parseError: parseError.message
+          },
+          timestamp: new Date().toISOString()
+        }, {
+          status: 400,
+          headers: corsHeaders
+        });
+      }
+    } else {
+      console.error("❌ Empty or missing request body");
       return json({
         success: false,
         error: "Empty request body",
         message: "Request body is required",
-        timestamp: new Date().toISOString()
-      }, {
-        status: 400,
-        headers: corsHeaders
-      });
-    }
-    
-    // Parse JSON from the text
-    let payload;
-    try {
-      payload = JSON.parse(requestBody);
-      console.log("✅ Successfully parsed payload:", payload);
-    } catch (parseError) {
-      console.error("❌ JSON parse failed:", parseError.message);
-      return json({
-        success: false,
-        error: "Invalid JSON format",
-        message: "Request body must be valid JSON",
-        debug: {
-          receivedBody: requestBody.substring(0, 200), // First 200 chars for debugging
-          parseError: parseError.message
-        },
-        timestamp: new Date().toISOString()
-      }, {
-        status: 400,
-        headers: corsHeaders
-      });
-    }
-
-    // Validate payload structure
-    if (!payload || typeof payload !== 'object') {
-      console.error("❌ Invalid payload structure:", payload);
-      return json({
-        success: false,
-        error: "Invalid payload",
-        message: "Request body must be a valid JSON object",
         timestamp: new Date().toISOString()
       }, {
         status: 400,
