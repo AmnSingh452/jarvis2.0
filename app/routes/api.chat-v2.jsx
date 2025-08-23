@@ -23,15 +23,32 @@ export async function options() {
 // Handle POST requests for chat - using the exact working pattern from recommendations
 export async function action({ request }) {
   try {
-    // EXACT same approach as working recommendations endpoint
+    // Parse the incoming request body properly
     const body = await request.text();
     const contentType = request.headers.get("content-type");
     
     console.log("🔎 Chat-v2 Raw request body:", body);
     console.log("🔎 Chat-v2 Body length:", body?.length || 0);
     
-    // Create cache key from request body
-    const cacheKey = Buffer.from(body).toString('base64').slice(0, 50);
+    // Parse and validate JSON
+    let payload;
+    try {
+      payload = JSON.parse(body);
+      console.log("🔎 Chat-v2 Parsed payload:", payload);
+    } catch (parseError) {
+      console.error("❌ Invalid JSON in request body:", parseError);
+      return json({
+        success: false,
+        error: "Invalid JSON in request body"
+      }, { status: 400, headers: corsHeaders });
+    }
+    
+    // Re-stringify to ensure clean JSON
+    const cleanBody = JSON.stringify(payload);
+    console.log("🔎 Chat-v2 Clean body to send:", cleanBody);
+    
+    // Create cache key from clean request body
+    const cacheKey = Buffer.from(cleanBody).toString('base64').slice(0, 50);
     const now = Date.now();
 
     // Check cache first
@@ -52,7 +69,7 @@ export async function action({ request }) {
       }
     }
 
-    console.log("🤖 Chat-v2 API request received");
+    console.log("🤖 Chat-v2 API request received, forwarding to external API");
 
     // Retry logic for rate limiting
     let retryCount = 0;
@@ -61,13 +78,19 @@ export async function action({ request }) {
 
     while (retryCount <= maxRetries) {
       try {
+        console.log("🔎 About to send to external API:");
+        console.log("🔎 URL: https://cartrecover-bot.onrender.com/api/chat");
+        console.log("🔎 Headers: Content-Type: application/json");
+        console.log("🔎 Body:", cleanBody);
+        console.log("🔎 Body type:", typeof cleanBody);
+        
         response = await fetch("https://cartrecover-bot.onrender.com/api/chat", {
           method: "POST",
           headers: {
-            "Content-Type": contentType || "application/json",
+            "Content-Type": "application/json",
             "User-Agent": "Shopify-Chatbot-Proxy/1.0"
           },
-          body: body
+          body: cleanBody
         });
 
         if (response.status === 429 && retryCount < maxRetries) {

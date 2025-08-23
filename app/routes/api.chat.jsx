@@ -24,21 +24,33 @@ export async function options() {
 export async function action({ request }) {
   console.log("🔄 Redirecting /api/chat request to /api/chat-v2 endpoint");
   
-  // Read the request body
+  // Read and parse the request body properly
   const requestBody = await request.text();
   const contentType = request.headers.get("content-type");
   
   console.log("🔎 Redirect - Body length:", requestBody?.length || 0);
+  console.log("🔎 Redirect - Raw body:", requestBody);
+  
+  // Parse and validate JSON to ensure clean forwarding
+  let cleanBody;
+  try {
+    const payload = JSON.parse(requestBody);
+    cleanBody = JSON.stringify(payload);
+    console.log("🔎 Redirect - Parsed payload:", payload);
+  } catch (parseError) {
+    console.error("❌ Invalid JSON in redirect:", parseError);
+    cleanBody = requestBody; // fallback to raw body
+  }
   
   // Forward the request to the working chat-v2 endpoint
   try {
     const response = await fetch("https://jarvis2-0-djg1.onrender.com/api/chat-v2", {
       method: "POST",
       headers: {
-        "Content-Type": contentType || "application/json",
+        "Content-Type": "application/json",
         "User-Agent": "Shopify-Chatbot-Proxy-Redirect/1.0"
       },
-      body: requestBody
+      body: cleanBody
     });
     
     const responseData = await response.text();
