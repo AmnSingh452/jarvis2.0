@@ -3,7 +3,7 @@
 client_id = "3ea38032bd55fb833a9f5dfd0ca9d4d0"
 name = "jarvis2.0"
 handle = "jarvis2-0"
-application_url = "https://fraser-partially-appeared-love.trycloudflare.com"
+application_url = "https://becoming-fashion-barn-lottery.trycloudflare.com"
 embedded = true
 
 [build]
@@ -34,7 +34,7 @@ api_version = "2025-07"
 scopes = "write_products,read_customers,write_payment_terms,read_products,read_orders,read_discounts,write_discounts,read_product_listings,read_fulfillments"
 
 [auth]
-redirect_urls = ["https://fraser-partially-appeared-love.trycloudflare.com/auth/callback", "https://fraser-partially-appeared-love.trycloudflare.com/auth/shopify/callback", "https://fraser-partially-appeared-love.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://becoming-fashion-barn-lottery.trycloudflare.com/auth/callback", "https://becoming-fashion-barn-lottery.trycloudflare.com/auth/shopify/callback", "https://becoming-fashion-barn-lottery.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false
