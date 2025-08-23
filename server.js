@@ -24,9 +24,9 @@ app.use('/health', (req, res, next) => {
   next();
 });
 
-// Basic middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Basic middleware - REMOVED express.json() to let Remix handle request bodies
+// app.use(express.json()); // This was consuming request bodies before Remix could read them!
+// app.use(express.urlencoded({ extended: true })); // Same issue with URL encoded bodies
 
 // Serve static files
 app.use('/assets', express.static(path.join(__dirname, 'build/client/assets')));
