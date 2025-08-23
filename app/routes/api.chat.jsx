@@ -23,56 +23,48 @@ export async function options() {
 // Handle POST requests for chat
 export async function action({ request }) {
   try {
-    // Parse the incoming request with robust error handling
-    let payload;
-    
     console.log("🔎 Request method:", request.method);
     console.log("🔎 Request content-type:", request.headers.get('content-type'));
-    console.log("🔎 Request headers:", Object.fromEntries(request.headers.entries()));
     
+    // Use the same approach as the working recommendations endpoint
+    const requestBody = await request.text();
+    console.log("🔎 Raw request body:", requestBody);
+    console.log("🔎 Body length:", requestBody?.length || 0);
+    
+    // Validate body exists
+    if (!requestBody || requestBody.trim() === "") {
+      console.error("❌ Empty request body received");
+      return json({
+        success: false,
+        error: "Empty request body",
+        message: "Request body is required",
+        timestamp: new Date().toISOString()
+      }, {
+        status: 400,
+        headers: corsHeaders
+      });
+    }
+    
+    // Parse JSON from the text
+    let payload;
     try {
-      // Try direct JSON parsing first (most reliable)
-      payload = await request.json();
-      console.log("✅ Successfully parsed JSON payload:", payload);
-      
+      payload = JSON.parse(requestBody);
+      console.log("✅ Successfully parsed payload:", payload);
     } catch (parseError) {
-      console.error("❌ Direct JSON parse failed:", parseError.message);
-      
-      // Fallback: try reading as text first
-      try {
-        const requestClone = request.clone();
-        const requestBody = await requestClone.text();
-        console.log("🔎 Raw request body text:", requestBody);
-        console.log("🔎 Body length:", requestBody?.length || 0);
-        
-        if (!requestBody || requestBody.trim() === "") {
-          console.error("❌ Empty request body received");
-          return json({
-            success: false,
-            error: "Empty request body",
-            message: "Request body is required for chat API",
-            timestamp: new Date().toISOString()
-          }, {
-            status: 400,
-            headers: corsHeaders
-          });
-        }
-        
-        payload = JSON.parse(requestBody);
-        console.log("✅ Parsed payload from text:", payload);
-        
-      } catch (textParseError) {
-        console.error("❌ Text fallback also failed:", textParseError.message);
-        return json({
-          success: false,
-          error: "Invalid JSON format",
-          message: "Request body must be valid JSON",
-          timestamp: new Date().toISOString()
-        }, {
-          status: 400,
-          headers: corsHeaders
-        });
-      }
+      console.error("❌ JSON parse failed:", parseError.message);
+      return json({
+        success: false,
+        error: "Invalid JSON format",
+        message: "Request body must be valid JSON",
+        debug: {
+          receivedBody: requestBody.substring(0, 200), // First 200 chars for debugging
+          parseError: parseError.message
+        },
+        timestamp: new Date().toISOString()
+      }, {
+        status: 400,
+        headers: corsHeaders
+      });
     }
 
     // Validate payload structure
