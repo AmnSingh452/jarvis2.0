@@ -23,188 +23,145 @@ export async function options() {
 // Handle POST requests for chat
 export async function action({ request }) {
   try {
-    // Check if request has a body
+    console.log("🔎 Chat API request received");
+    
+    // Parse the incoming request
     const requestText = await request.text();
-    console.log("🔎 Raw incoming request text:", requestText);
+    console.log("🔎 Request body:", requestText);
     
     if (!requestText || requestText.trim() === "") {
       console.error("❌ Empty request body received");
-      return json({
+      return new Response(JSON.stringify({
         success: false,
-        error: "Empty request body",
-        message: "Request body is required",
+        data: {
+          response: "I didn't receive your message properly. Please try typing it again.",
+          session_id: null
+        },
         timestamp: new Date().toISOString()
-      }, {
-        status: 400,
-        headers: corsHeaders
+      }), {
+        status: 200, // Widget expects 200 status
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json; charset=utf-8"
+        }
       });
     }
 
-    // Parse the incoming request
     let payload;
     try {
       payload = JSON.parse(requestText);
     } catch (parseError) {
       console.error("❌ Invalid JSON in request body:", parseError);
-      return json({
+      return new Response(JSON.stringify({
         success: false,
-        error: "Invalid JSON",
-        message: "Request body must be valid JSON",
+        data: {
+          response: "I had trouble understanding your message format. Please try again.",
+          session_id: null
+        },
         timestamp: new Date().toISOString()
-      }, {
-        status: 400,
-        headers: corsHeaders
+      }), {
+        status: 200, // Widget expects 200 status
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json; charset=utf-8"
+        }
       });
     }
 
-    const body = JSON.stringify(payload);
-    console.log("🔎 Parsed request body:", body);
+    console.log("🔎 Parsed payload:", payload);
 
-    // Create cache key from request body
-    const cacheKey = Buffer.from(body).toString('base64').slice(0, 50);
-    const now = Date.now();
+    // Forward to external API
+    try {
+      const response = await fetch("https://cartrecover-bot.onrender.com/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Shopify-Chatbot-Proxy/1.0"
+        },
+        body: JSON.stringify(payload)
+      });
 
-    // Check cache first
-    if (chatCache.has(cacheKey)) {
-      const cached = chatCache.get(cacheKey);
-      if (now - cached.timestamp < CACHE_TTL) {
-        console.log("📋 Returning cached chat response");
-        return new Response(cached.data, {
-          status: 200,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-            "X-Cache": "HIT"
-          }
-        });
-      } else {
-        chatCache.delete(cacheKey);
-      }
-    }
+      const responseText = await response.text();
+      console.log("🔎 External API response:", response.status, responseText);
 
-    console.log("🤖 Chat API request received:", {
-      method: request.method,
-      bodyLength: body.length
-    });
-
-    // Retry logic for rate limiting
-    let retryCount = 0;
-    const maxRetries = 2;
-    let response;
-
-    while (retryCount <= maxRetries) {
+      // Parse the external API response
+      let externalData;
       try {
-        response = await fetch("https://cartrecover-bot.onrender.com/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "User-Agent": "Shopify-Chatbot-Proxy/1.0"
-          },
-          body: body
-        });
-
-        if (response.status === 429 && retryCount < maxRetries) {
-          const retryAfter = response.headers.get("retry-after") || "2";
-          const waitTime = Math.min(parseInt(retryAfter) * 1000, 5000);
-          console.log(`⏳ Rate limited, retrying in ${waitTime}ms (attempt ${retryCount + 1}/${maxRetries + 1})`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          retryCount++;
-          continue;
-        }
-        break;
-      } catch (fetchError) {
-        console.error(`❌ Fetch attempt ${retryCount + 1} failed:`, fetchError);
-        if (retryCount === maxRetries) throw fetchError;
-        retryCount++;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-
-    const rawResponse = await response.text();
-    console.log("🔎 Raw external API response:", rawResponse);
-    let responseData;
-    if (rawResponse && rawResponse.trim() !== "") {
-      try {
-        responseData = JSON.parse(rawResponse);
-      } catch (jsonErr) {
-        console.error("❌ Failed to parse external API response as JSON:", jsonErr);
+        externalData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("❌ Failed to parse external API response:", parseError);
         return new Response(JSON.stringify({
           success: false,
-          error: "Invalid response from chat service",
-          data: rawResponse,
+          data: {
+            response: "Sorry, I'm having trouble connecting right now. Please try again.",
+            session_id: payload.session_id
+          },
           timestamp: new Date().toISOString()
         }), {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json; charset=utf-8"
+          }
         });
       }
-    } else {
-      console.error("❌ External API returned empty response.");
-      return new Response(JSON.stringify({
-        success: false,
-        error: "Empty response from chat service",
-        data: null,
-        timestamp: new Date().toISOString()
-      }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
 
-    if (response.status === 200) {
-      console.log("✅ Chat API responded successfully");
-      chatCache.set(cacheKey, {
-        data: JSON.stringify(responseData),
-        timestamp: now
-      });
-      return new Response(JSON.stringify(responseData), {
-        status: 200,
+      // Transform the external API response to match widget expectations
+      const transformedResponse = {
+        success: externalData.success || false,
+        data: {
+          response: externalData.message || externalData.response || "I received your message but couldn't generate a proper response.",
+          session_id: externalData.session_id || payload.session_id,
+          // Include any additional data from external API
+          ...(externalData.data && typeof externalData.data === 'object' ? externalData.data : {})
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      console.log("🔄 Transformed response for widget:", transformedResponse);
+
+      // Return transformed response with same status as external API
+      return new Response(JSON.stringify(transformedResponse), {
+        status: response.status === 200 ? 200 : 200, // Always return 200 for widget compatibility
         headers: {
           ...corsHeaders,
-          "Content-Type": "application/json",
-          "X-Cache": "MISS"
+          "Content-Type": "application/json; charset=utf-8"
         }
       });
-    } else if (response.status === 429) {
-      console.log("⚠️ Rate limited after retries, returning error");
+
+    } catch (fetchError) {
+      console.error("❌ External API fetch error:", fetchError);
       return new Response(JSON.stringify({
         success: false,
-        error: "Service temporarily unavailable due to rate limiting",
-        data: null,
+        data: {
+          response: "I'm having trouble connecting to my brain right now. Please try again in a moment.",
+          session_id: payload.session_id
+        },
         timestamp: new Date().toISOString()
       }), {
-        status: 503,
+        status: 200, // Return 200 for widget compatibility
         headers: {
           ...corsHeaders,
-          "Content-Type": "application/json",
-          "X-Cache": "RATE_LIMITED"
-        }
-      });
-    } else {
-      console.log(`⚠️ External API returned ${response.status}, returning error`);
-      return new Response(JSON.stringify({
-        success: false,
-        error: "Chat service unavailable",
-        data: responseData,
-        timestamp: new Date().toISOString()
-      }), {
-        status: response.status,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json; charset=utf-8"
         }
       });
     }
+    
   } catch (error) {
     console.error("❌ Chat API proxy error:", error);
-    return json({
+    return new Response(JSON.stringify({
       success: false,
-      error: "Chat service unavailable",
-      message: "Unable to connect to chat service. Please try again later.",
+      data: {
+        response: "I'm experiencing some technical difficulties. Please try again in a moment.",
+        session_id: null
+      },
       timestamp: new Date().toISOString()
-    }, {
-      status: 500,
-      headers: corsHeaders
+    }), {
+      status: 200, // Widget expects 200 status
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json; charset=utf-8"
+      }
     });
   }
 }
