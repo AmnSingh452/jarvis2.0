@@ -1,11 +1,6 @@
 import { json } from "@remix-run/node";
 
 export const loader = async ({ request }) => {
-  // Only allow in development
-  if (process.env.NODE_ENV === "production") {
-    return json({ error: "Debug routes not available in production" }, { status: 404 });
-  }
-  
   console.log("🗑️ Debug clear shop data initiated");
   
   const url = new URL(request.url);

@@ -40,7 +40,7 @@ export const loader = async ({ request }) => {
     }
     
     // Test the token by making a simple API call
-    try {
+    try {a
       const response = await fetch(`https://${shopDomain}/admin/api/2025-01/shop.json`, {
         headers: {
           'X-Shopify-Access-Token': shop.accessToken,

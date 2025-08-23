@@ -23,37 +23,32 @@ export async function options() {
 // Handle POST requests for chat
 export async function action({ request }) {
   try {
-    // Parse the incoming request directly
+    // Parse the incoming request with better error handling
     let payload;
+    let requestBody;
+    
     try {
-      const text = await request.text();
-      console.log("🔎 Raw request text:", JSON.stringify(text));
-      console.log("🔎 Raw request text length:", text.length);
+      // Clone the request to avoid consuming the stream
+      const requestClone = request.clone();
+      requestBody = await requestClone.text();
+      
+      console.log("🔎 Raw request body:", requestBody);
       console.log("🔎 Request content-type:", request.headers.get('content-type'));
       console.log("🔎 Request method:", request.method);
       
-      if (!text || text.trim() === "") {
-        console.error("❌ Empty request body received");
-        return json({
-          success: false,
-          error: "Empty request body",
-          message: "Request body is required",
-          timestamp: new Date().toISOString()
-        }, {
-          status: 400,
-          headers: corsHeaders
-        });
-      }
+      // Try to parse JSON from the original request
+      payload = await request.json();
+      console.log("🔎 Parsed payload:", payload);
       
-      payload = JSON.parse(text);
-      console.log("🔎 Parsed request payload:", payload);
     } catch (parseError) {
-      console.error("❌ Invalid JSON in request body:", parseError);
-      console.error("❌ Raw text that failed:", text);
+      console.error("❌ JSON parse error:", parseError);
+      console.error("❌ Raw body that failed:", requestBody);
+      
+      // Return a more helpful error
       return json({
         success: false,
-        error: "Invalid JSON",
-        message: "Request body must be valid JSON",
+        error: "Invalid JSON format",
+        message: `Request body must be valid JSON. Received: ${requestBody || 'empty'}`,
         timestamp: new Date().toISOString()
       }, {
         status: 400,
@@ -61,13 +56,13 @@ export async function action({ request }) {
       });
     }
 
-    // Check if payload is empty or missing required fields
+    // Validate payload structure
     if (!payload || typeof payload !== 'object') {
-      console.error("❌ Empty or invalid request payload");
+      console.error("❌ Invalid payload structure:", payload);
       return json({
         success: false,
-        error: "Empty request body",
-        message: "Request body is required",
+        error: "Invalid payload",
+        message: "Request body must be a valid JSON object",
         timestamp: new Date().toISOString()
       }, {
         status: 400,

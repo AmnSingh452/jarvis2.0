@@ -33,107 +33,15 @@ export const loader = async ({ request }) => {
     
     console.log(`🔍 Fresh installation check:`, {
       shop: session.shop,
-      isFreshInstall: verification.isFresh,
-      oldSessions: verification.oldSessions,
-      oldShops: verification.oldShops
+      isFreshInstall: verification.isFreshInstall,
+      hasValidToken: verification.hasValidToken
     });
-
-    // PRODUCTION-READY: Use session data to maintain shop records
-    // This handles multiple clients and reinstallation scenarios
-    if (session && session.accessToken) {
-      try {
-        const db = await import("../db.server");
-        
-        // Check if shop exists and its status
-        const existingShop = await db.default.shop.findUnique({
-          where: { shopDomain: session.shop }
-        });
-        
-        let isNewInstallation = false;
-        let isReinstallation = false;
-        
-        if (!existingShop) {
-          // Completely new shop
-          isNewInstallation = true;
-        } else if (!existingShop.isActive || existingShop.uninstalledAt) {
-          // Shop exists but was uninstalled - this is a reinstallation
-          isReinstallation = true;
-        }
-        
-        // Always ensure shop data is current with latest session info
-        const shopData = await db.default.shop.upsert({
-          where: { shopDomain: session.shop },
-          update: {
-            accessToken: session.accessToken,
-            isActive: true,
-            uninstalledAt: null, // Clear uninstall timestamp
-            tokenVersion: isReinstallation ? { increment: 1 } : undefined
-          },
-          create: {
-            shopDomain: session.shop,
-            accessToken: session.accessToken,
-            installedAt: new Date(),
-            isActive: true,
-            tokenVersion: 1
-          }
-        });
-        
-        // Log based on scenario
-        if (isNewInstallation) {
-          console.log(`💾 NEW INSTALLATION: ${session.shop} (ID: ${shopData.id})`);
-          
-          await db.default.installationLog.create({
-            data: {
-              shopDomain: session.shop,
-              action: "SHOP_INSTALLED",
-              metadata: {
-                shopId: shopData.id,
-                tokenVersion: shopData.tokenVersion,
-                scopes: session.scope,
-                sessionId: session.id,
-                timestamp: new Date().toISOString(),
-                clientType: "new"
-              }
-            }
-          });
-          
-        } else if (isReinstallation) {
-          console.log(`🔄 REINSTALLATION: ${session.shop} (ID: ${shopData.id}, Version: ${shopData.tokenVersion})`);
-          
-          await db.default.installationLog.create({
-            data: {
-              shopDomain: session.shop,
-              action: "SHOP_REINSTALLED",
-              metadata: {
-                shopId: shopData.id,
-                tokenVersion: shopData.tokenVersion,
-                scopes: session.scope,
-                sessionId: session.id,
-                timestamp: new Date().toISOString(),
-                previouslyUninstalledAt: existingShop?.uninstalledAt?.toISOString(),
-                clientType: "returning"
-              }
-            }
-          });
-          
-        } else {
-          // Existing active shop - just ensure token is fresh
-          console.log(`✅ ACTIVE CLIENT: ${session.shop} - token refreshed`);
-        }
-        
-      } catch (dbError) {
-        console.error("❌ Database error during shop data sync:", dbError);
-        console.error("   Shop:", session.shop);
-        console.error("   Session ID:", session.id);
-        // Log but don't fail the app
-      }
-    }
     
     // If it's a fresh install and user hasn't seen welcome page, redirect
     const url = new URL(request.url);
     const hasSeenWelcome = url.searchParams.get("welcomed") === "true";
     
-    if (verification.isFresh && !hasSeenWelcome) {
+    if (verification.isFreshInstall && !hasSeenWelcome) {
       return redirect("/app/welcome");
     }
   } catch (error) {
