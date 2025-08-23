@@ -25,6 +25,15 @@ export async function action({ request }) {
     const body = await request.text();
     console.log("🔎 Chat-v3 Raw body received:", body);
     console.log("🔎 Chat-v3 Body length:", body?.length || 0);
+    console.log("🔎 Chat-v3 Body type:", typeof body);
+    
+    // Try to parse it to see if it's valid JSON
+    try {
+      const parsed = JSON.parse(body);
+      console.log("🔎 Chat-v3 Parsed JSON:", JSON.stringify(parsed, null, 2));
+    } catch (e) {
+      console.log("🔎 Chat-v3 JSON parse error:", e.message);
+    }
     
     // Get original headers
     const contentType = request.headers.get("content-type") || "application/json";
@@ -35,8 +44,8 @@ export async function action({ request }) {
     const response = await fetch("https://cartrecover-bot.onrender.com/api/chat", {
       method: "POST",
       headers: {
-        "Content-Type": contentType,
-        "User-Agent": "Shopify-Chatbot-Simple-Proxy/1.0"
+        "Content-Type": contentType
+        // Removed User-Agent to test if that's causing issues
       },
       body: body // Pass through exactly as received
     });
