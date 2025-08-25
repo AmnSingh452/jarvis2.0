@@ -1,26 +1,24 @@
 <div id="chatbot-widget"></div>
 <script>
-  // Force all API calls through CORS proxy - no direct external API calls
+  // Force all API calls through Shopify App Proxy - follows official Shopify documentation
   window.SHOPIFY_CHATBOT_CONFIG = {
     shop_domain: "{{ shop.permanent_domain }}",
     shop_name: "{{ shop.name }}",
     shop_id: {{ shop.id }},
     shop_currency: "{{ shop.currency }}",
     shop_timezone: "{{ shop.timezone }}",
-    // Remix app configuration endpoint for dynamic API URLs
-    config_endpoint: "https://jarvis2-0-djg1.onrender.com/api/widget-config?shop={{ shop.permanent_domain }}",
-    // CRITICAL: All API calls MUST go through Remix proxy to avoid CORS errors
+    // Using Shopify App Proxy URLs as per documentation
     api_endpoints: {
-      chat: "https://jarvis2-0-djg1.onrender.com/api/chat",
-      abandoned_cart_discount: "https://jarvis2-0-djg1.onrender.com/api/abandoned-cart-discount",
-      session: "https://jarvis2-0-djg1.onrender.com/api/session",
-      customer_update: "https://jarvis2-0-djg1.onrender.com/api/customer/update",
-      widget_config: "https://jarvis2-0-djg1.onrender.com/api/widget-config",
-      recommendations: "https://jarvis2-0-djg1.onrender.com/api/recommendations"
+      chat: "/a/jarvis-proxy/chat",
+      abandoned_cart_discount: "/a/jarvis-proxy/abandoned-cart-discount",
+      session: "/a/jarvis-proxy/session",
+      customer_update: "/a/jarvis-proxy/customer/update",
+      widget_config: "/a/jarvis-proxy/widget-config",
+      recommendations: "/a/jarvis-proxy/recommendations"
     },
-    // Force proxy usage
+    // Force proxy usage through Shopify App Proxy
     use_proxy: true,
-    proxy_base_url: "https://jarvis2-0-djg1.onrender.com"
+    proxy_base_url: "/a/jarvis-proxy"
   };
   
   // Set global shop domain for backward compatibility
@@ -31,9 +29,9 @@
   window.Shopify.shop = "{{ shop.permanent_domain }}";
   
   // Debug: Log the configuration for troubleshooting
-  console.log('🤖 Chatbot Config (CORS PROXY ONLY):', window.SHOPIFY_CHATBOT_CONFIG);
+  console.log('🤖 Chatbot Config (Shopify App Proxy):', window.SHOPIFY_CHATBOT_CONFIG);
   console.log('🏪 Shop Domain:', window.SHOP_DOMAIN);
-  console.log('⚠️ All API calls MUST use proxy URLs to avoid CORS errors');
+  console.log('✅ Using Shopify App Proxy URLs (officially supported)');
 </script>
 <script src="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.js"></script>
 <link rel="stylesheet" href="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.css">
