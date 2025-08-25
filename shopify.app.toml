@@ -3,7 +3,7 @@
 client_id = "3ea38032bd55fb833a9f5dfd0ca9d4d0"
 name = "jarvis2.0"
 handle = "jarvis2-0"
-application_url = "https://models-mistakes-remark-sonic.trycloudflare.com"
+application_url = "https://amp-been-well-frankfurt.trycloudflare.com"
 embedded = true
 
 [build]
@@ -34,12 +34,17 @@ api_version = "2025-07"
 scopes = "write_products,read_customers,write_payment_terms,read_products,read_orders,read_discounts,write_discounts,read_product_listings,read_fulfillments"
 
 [auth]
-redirect_urls = ["https://models-mistakes-remark-sonic.trycloudflare.com/auth/callback", "https://models-mistakes-remark-sonic.trycloudflare.com/auth/shopify/callback", "https://models-mistakes-remark-sonic.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://amp-been-well-frankfurt.trycloudflare.com/auth/callback", "https://amp-been-well-frankfurt.trycloudflare.com/auth/shopify/callback", "https://amp-been-well-frankfurt.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false
 
 [app_proxy]
-url = "https://models-mistakes-remark-sonic.trycloudflare.com/a/jarvis-proxy"
+url = "https://amp-been-well-frankfurt.trycloudflare.com/a/jarvis-proxy"
 subpath = "jarvis-proxy"
 prefix = "a"
+
+[webhooks.privacy_compliance]
+customer_deletion_url = "https://models-mistakes-remark-sonic.trycloudflare.com/webhooks/customers/redact"
+customer_data_request_url = "https://models-mistakes-remark-sonic.trycloudflare.com/webhooks/customers/data_request"
+shop_deletion_url = "https://models-mistakes-remark-sonic.trycloudflare.com/webhooks/shop/redact"
