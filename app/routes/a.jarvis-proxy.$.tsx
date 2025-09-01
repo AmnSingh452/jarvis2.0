@@ -95,9 +95,9 @@ export async function action({ request }: ActionFunctionArgs) {
     const pathname = url.pathname;
     
     // Route to different handlers based on path
-    if (pathname.includes('/chat')) {
+    if (pathname.includes('/api/chat')) {
       return handleChat(request, proxyContext?.session || null, shop);
-    } else if (pathname.includes('/abandoned-cart-discount')) {
+    } else if (pathname.includes('/api/abandoned-cart-discount')) {
       return handleAbandonedCartDiscount(request, proxyContext?.session || null, shop);
     } else if (pathname.includes('/recommendations')) {
       return handleRecommendations(request, proxyContext?.session || null, shop);
@@ -170,16 +170,40 @@ async function handleChat(request: Request, session: any | null, shop: string) {
 
     console.log("🔎 Parsed payload:", payload);
 
+    // Get shop access token
+    const db = (await import("../db.server")).default;
+    const shopData = await db.shop.findUnique({
+      where: { shopDomain: shop },
+      select: { accessToken: true }
+    });
+
+    if (!shopData?.accessToken) {
+      console.error("❌ No access token found for shop:", shop);
+      return json({
+        success: false,
+        data: {
+          response: "Sorry, I'm having trouble accessing shop data right now. Please try reinstalling the app.",
+          session_id: payload.session_id
+        },
+        timestamp: new Date().toISOString()
+      }, {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
     // Forward to external API
     const response = await fetch("https://cartrecover-bot.onrender.com/api/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "User-Agent": "Shopify-Chatbot-Proxy/1.0"
+        "User-Agent": "Shopify-Chatbot-Proxy/1.0",
+        "X-Shopify-Access-Token": shopData.accessToken
       },
       body: JSON.stringify({
         ...payload,
-        shop_domain: shop // Use the authenticated shop domain
+        shop_domain: shop, // Use the authenticated shop domain
+        access_token: shopData.accessToken // Include access token for Shopify API calls
       })
     });
 
@@ -293,16 +317,70 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
 }
 
 async function handleRecommendations(request: Request, session: any | null, shop: string) {
-  // Handle product recommendations
-  return json({
-    success: true,
-    shop: shop,
-    recommendations: [],
-    message: "No recommendations available",
-    timestamp: new Date().toISOString()
-  }, {
-    headers: corsHeaders
-  });
+  try {
+    console.log("🔎 Processing recommendations request for shop:", shop);
+    
+    // Get shop token directly from database
+    const db = (await import("../db.server")).default;
+    const shopData = await db.shop.findUnique({
+      where: { shopDomain: shop },
+      select: { accessToken: true, isActive: true }
+    });
+
+    if (!shopData?.isActive || !shopData?.accessToken) {
+      console.error("❌ No valid token found for shop:", shop);
+      return json({
+        success: false,
+        error: "Shop authentication required",
+        timestamp: new Date().toISOString()
+      }, {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    const requestText = await request.text();
+    console.log("🔎 Request body:", requestText);
+
+    // Forward to recommendations API with shop's access token
+    const response = await fetch("https://cartrecover-bot.onrender.com/api/recommendations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Shopify-Chatbot-Proxy/1.0",
+        "X-Shopify-Access-Token": shopData.accessToken,
+        "X-Shopify-Shop-Domain": shop
+      },
+      body: JSON.stringify({
+        ...JSON.parse(requestText),
+        shop_domain: shop,
+        access_token: shopData.accessToken
+      })
+    });
+
+    if (!response.ok) {
+      console.error("❌ Recommendations API error:", response.status);
+      const errorText = await response.text();
+      console.error("Error details:", errorText);
+      throw new Error(`API request failed: ${response.status} ${errorText}`);
+    }
+
+    const responseData = await response.json();
+    return json(responseData, {
+      status: response.status,
+      headers: corsHeaders
+    });
+  } catch (error) {
+    console.error("❌ Recommendations handler error:", error);
+    return json({
+      success: false,
+      error: error instanceof Error ? error.message : "Internal server error",
+      timestamp: new Date().toISOString()
+    }, {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
 }
 
 async function handleCustomerUpdate(request: Request, session: any | null, shop: string) {
