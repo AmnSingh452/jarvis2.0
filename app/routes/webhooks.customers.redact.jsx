@@ -19,6 +19,19 @@ function verifyWebhookSignature(body, signature, secret) {
   }
 }
 
+// Handle GET requests (for testing/health checks)
+export const loader = async ({ request }) => {
+  console.log("🗑️ Customer redact endpoint accessed via GET");
+  return new Response(JSON.stringify({ 
+    message: "Customer data erasure endpoint is active",
+    method: "GET",
+    timestamp: new Date().toISOString()
+  }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
 export const action = async ({ request }) => {
   // Import server-only modules inside the action function
   const { authenticate } = await import("../shopify.server");
