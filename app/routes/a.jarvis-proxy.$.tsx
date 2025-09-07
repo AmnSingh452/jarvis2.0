@@ -105,6 +105,8 @@ export async function action({ request }: ActionFunctionArgs) {
       return handleRecommendations(request, proxyContext?.session || null, shop);
     } else if (pathname.includes('/customer/update')) {
       return handleCustomerUpdate(request, proxyContext?.session || null, shop);
+    } else if (pathname.includes('/debug-token')) {
+      return handleTokenDebug(request, proxyContext?.session || null, shop);
     }
     
     // Default response for unknown endpoints
@@ -486,4 +488,55 @@ async function handleCustomerUpdate(request: Request, session: any | null, shop:
   }, {
     headers: corsHeaders
   });
+}
+
+async function handleTokenDebug(request: Request, session: any | null, shop: string) {
+  try {
+    console.log("🔍 TOKEN DEBUG - Shop:", shop);
+    console.log("🔍 TOKEN DEBUG - Session exists:", !!session);
+    
+    let debugInfo: any = {
+      shop: shop,
+      sessionExists: !!session,
+      sessionKeys: session ? Object.keys(session) : [],
+      timestamp: new Date().toISOString()
+    };
+
+    if (session) {
+      // Get access token
+      const accessToken = session.accessToken || session.token || session.access_token;
+      debugInfo.hasAccessToken = !!accessToken;
+      debugInfo.tokenPreview = accessToken ? accessToken.substring(0, 15) + "..." : null;
+      debugInfo.tokenType = accessToken ? (accessToken.startsWith('shpat_') ? 'offline' : 'unknown') : null;
+      
+      // Try to get fresh session from database
+      try {
+        const { sessionStorage } = await import("../shopify.server");
+        const freshSessions = await sessionStorage.findSessionsByShop(shop);
+        debugInfo.freshSessionsCount = freshSessions.length;
+        
+        if (freshSessions.length > 0) {
+          const latestSession = freshSessions[0];
+          debugInfo.freshTokenPreview = latestSession.accessToken ? 
+            latestSession.accessToken.substring(0, 15) + "..." : null;
+        }
+      } catch (dbError) {
+        debugInfo.dbError = dbError instanceof Error ? dbError.message : String(dbError);
+      }
+    }
+
+    return json(debugInfo, {
+      headers: corsHeaders
+    });
+
+  } catch (error) {
+    console.error("❌ Token debug error:", error);
+    return json({
+      error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString()
+    }, {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
 }
