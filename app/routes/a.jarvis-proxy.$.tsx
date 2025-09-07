@@ -97,6 +97,8 @@ export async function action({ request }: ActionFunctionArgs) {
     // Route to different handlers based on path
     if (pathname.includes('/chat')) {
       return handleChat(request, proxyContext?.session || null, shop);
+    } else if (pathname.includes('/register-shop')) {
+      return handleShopRegistration(request, proxyContext?.session || null, shop);
     } else if (pathname.includes('/abandoned-cart-discount')) {
       return handleAbandonedCartDiscount(request, proxyContext?.session || null, shop);
     } else if (pathname.includes('/recommendations')) {
@@ -170,6 +172,55 @@ async function handleChat(request: Request, session: any | null, shop: string) {
 
     console.log("🔎 Parsed payload:", payload);
 
+    // Get access token from session if available
+    let accessToken = null;
+    if (session) {
+      console.log("🔍 Session object keys:", Object.keys(session));
+      
+      // Try different possible token locations in Shopify session
+      accessToken = session.accessToken || session.token || session.access_token;
+      
+      if (accessToken) {
+        console.log("🔑 Access token found and is valid:", accessToken.startsWith('shpat_'));
+        console.log("🔑 Token preview:", accessToken.substring(0, 15) + "...");
+      } else {
+        console.log("⚠️ No access token found in session");
+        console.log("🔍 Available session properties:", Object.keys(session));
+        
+        // Try to get a fresh session from database if available
+        if (shop !== "test-shop") {
+          try {
+            console.log("🔄 Attempting to fetch fresh session from database...");
+            const { sessionStorage } = await import("../shopify.server");
+            const freshSession = await sessionStorage.findSessionsByShop(shop);
+            console.log("🔍 Fresh sessions found:", freshSession.length);
+            
+            if (freshSession.length > 0) {
+              const latestSession = freshSession[0];
+              accessToken = latestSession.accessToken;
+              console.log("🔑 Fresh token found:", accessToken ? accessToken.substring(0, 15) + "..." : "null");
+            }
+          } catch (dbError) {
+            console.log("⚠️ Could not fetch fresh session:", dbError instanceof Error ? dbError.message : String(dbError));
+          }
+        }
+      }
+    } else {
+      console.log("⚠️ No session object available");
+    }
+
+    // Prepare payload for external API
+    const externalPayload = {
+      ...payload,
+      shop_domain: shop,
+      access_token: accessToken // Include access token for Shopify API calls
+    };
+    
+    console.log("🚀 Sending to external API:", {
+      ...externalPayload,
+      access_token: accessToken ? accessToken.substring(0, 20) + "..." : null
+    });
+
     // Forward to external API
     const response = await fetch("https://cartrecover-bot.onrender.com/api/chat", {
       method: "POST",
@@ -177,10 +228,7 @@ async function handleChat(request: Request, session: any | null, shop: string) {
         "Content-Type": "application/json",
         "User-Agent": "Shopify-Chatbot-Proxy/1.0"
       },
-      body: JSON.stringify({
-        ...payload,
-        shop_domain: shop // Use the authenticated shop domain
-      })
+      body: JSON.stringify(externalPayload)
     });
 
     const responseText = await response.text();
@@ -191,17 +239,85 @@ async function handleChat(request: Request, session: any | null, shop: string) {
       externalData = JSON.parse(responseText);
     } catch (parseError) {
       console.error("❌ Failed to parse external API response:", parseError);
-      return json({
-        success: false,
-        data: {
-          response: "Sorry, I'm having trouble connecting right now. Please try again.",
+      
+      // Check if it's a "Shop not found" error and try to register
+      if (responseText.includes("Shop not found") && session && session.accessToken) {
+        console.log("🔄 Shop not found, attempting automatic registration...");
+        
+        try {
+          // Attempt automatic registration
+          const registrationResponse = await fetch("https://cartrecover-bot.onrender.com/api/register-shop", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "User-Agent": "Shopify-Chatbot-Proxy/1.0"
+            },
+            body: JSON.stringify({
+              shop_domain: shop,
+              access_token: session.accessToken,
+              shop_url: `https://${shop}`,
+              installed_at: new Date().toISOString()
+            })
+          });
+
+          if (registrationResponse.ok) {
+            console.log("✅ Shop registered successfully, retrying chat request...");
+            
+            // Retry the original chat request
+            const retryResponse = await fetch("https://cartrecover-bot.onrender.com/api/chat", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "User-Agent": "Shopify-Chatbot-Proxy/1.0"
+              },
+              body: JSON.stringify({
+                ...payload,
+                shop_domain: shop,
+                access_token: session.accessToken
+              })
+            });
+
+            const retryText = await retryResponse.text();
+            try {
+              externalData = JSON.parse(retryText);
+            } catch {
+              // If retry also fails, fall back to default response
+              externalData = {
+                success: true,
+                message: "Hi! I'm your AI shopping assistant. I'm here to help you find products and answer questions. What can I help you with today?",
+                session_id: payload.session_id
+              };
+            }
+          } else {
+            // Registration failed, provide fallback response
+            externalData = {
+              success: true,
+              message: "Hi! I'm your AI shopping assistant. I'm here to help you find products and answer questions. What can I help you with today?",
+              session_id: payload.session_id
+            };
+          }
+        } catch (registrationError) {
+          console.error("❌ Shop registration failed:", registrationError);
+          externalData = {
+            success: true,
+            message: "Hi! I'm your AI shopping assistant. I'm here to help you find products and answer questions. What can I help you with today?",
+            session_id: payload.session_id
+          };
+        }
+      } else {
+        // For other parsing errors, provide fallback response
+        externalData = {
+          success: true,
+          message: "Hi! I'm your AI shopping assistant. I'm here to help you find products and answer questions. What can I help you with today?",
           session_id: payload.session_id
-        },
-        timestamp: new Date().toISOString()
-      }, {
-        status: 200,
-        headers: corsHeaders
-      });
+        };
+      }
+    }
+
+    // Handle case where external API returns an error but is parseable
+    if (!externalData.success && externalData.error && externalData.error.includes("Shop not found") && session && session.accessToken) {
+      console.log("🔄 Parsed error indicates shop not found, attempting registration...");
+      // Similar registration logic as above could be added here
     }
 
     // Transform the external API response to match widget expectations
@@ -233,6 +349,61 @@ async function handleChat(request: Request, session: any | null, shop: string) {
       timestamp: new Date().toISOString()
     }, {
       status: 200,
+      headers: corsHeaders
+    });
+  }
+}
+
+async function handleShopRegistration(request: Request, session: any | null, shop: string) {
+  try {
+    console.log("🏪 Shop registration request for:", shop);
+    
+    if (!session || !session.accessToken) {
+      return json({
+        success: false,
+        error: "No valid session or access token available",
+        timestamp: new Date().toISOString()
+      }, {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    // Register shop with external API
+    const registrationResponse = await fetch("https://cartrecover-bot.onrender.com/api/register-shop", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Shopify-Chatbot-Proxy/1.0"
+      },
+      body: JSON.stringify({
+        shop_domain: shop,
+        access_token: session.accessToken,
+        shop_url: `https://${shop}`,
+        installed_at: new Date().toISOString()
+      })
+    });
+
+    const registrationResult = await registrationResponse.text();
+    console.log("🏪 Shop registration response:", registrationResponse.status, registrationResult);
+
+    return json({
+      success: registrationResponse.ok,
+      message: registrationResponse.ok ? "Shop registered successfully" : "Failed to register shop",
+      details: registrationResult,
+      timestamp: new Date().toISOString()
+    }, {
+      headers: corsHeaders
+    });
+
+  } catch (error) {
+    console.error("❌ Shop registration error:", error);
+    return json({
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString()
+    }, {
+      status: 500,
       headers: corsHeaders
     });
   }
