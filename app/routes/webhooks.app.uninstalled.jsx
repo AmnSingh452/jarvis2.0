@@ -181,12 +181,13 @@ export const loader = async ({ request }) => {
   return new Response(JSON.stringify({
     message: "App uninstallation webhook endpoint",
     status: "active",
-    version: "v3.1",
+    version: "v3.2",
     timestamp: new Date().toISOString(),
     features: [
       "HMAC verification",
-      "Transaction-based cleanup",
+      "Step-by-step cleanup (no transaction)",
       "Token nullification",
+      "Timeout protection (4s)",
       "200 status on errors (prevents retries)"
     ]
   }), {
