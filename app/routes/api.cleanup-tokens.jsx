@@ -31,8 +31,7 @@ export async function action({ request }) {
             isActive: false,
             accessToken: null, // Critical: Clear the access token
             uninstalledAt: new Date(),
-            tokenVersion: { increment: 1 }, // Increment to invalidate old tokens
-            updatedAt: new Date()
+            tokenVersion: { increment: 1 } // Increment to invalidate old tokens
           }
         });
 
@@ -48,8 +47,7 @@ export async function action({ request }) {
             isActive: false,
             accessToken: null,
             uninstalledAt: new Date(),
-            tokenVersion: { increment: 1 },
-            updatedAt: new Date()
+            tokenVersion: { increment: 1 }
           }
         });
 

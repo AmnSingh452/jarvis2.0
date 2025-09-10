@@ -120,8 +120,7 @@ async function processUninstall(shop, db) {
           isActive: false, 
           uninstalledAt: new Date(), 
           accessToken: null, // Critical: Clear the access token
-          tokenVersion: { increment: 1 }, // Invalidate any cached tokens
-          updatedAt: new Date()
+          tokenVersion: { increment: 1 } // Invalidate any cached tokens
         },
       });
 
@@ -137,7 +136,7 @@ async function processUninstall(shop, db) {
           isActive: false, 
           accessToken: null,
           uninstalledAt: new Date(),
-          updatedAt: new Date()
+          tokenVersion: { increment: 1 }
         }
       });
 
