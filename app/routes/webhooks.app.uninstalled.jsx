@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-console.log(`🔔 webhooks.app.uninstalled.jsx FIXED VERSION v3.0 loaded at ${new Date().toISOString()}`);
+console.log(`🔔 webhooks.app.uninstalled.jsx FIXED VERSION v3.1 - HMAC HEX FIX loaded at ${new Date().toISOString()}`);
 
 function verifyWebhookSignature(bodyBuffer, signature, secret) {
   if (!signature || !secret) {
@@ -14,17 +14,19 @@ function verifyWebhookSignature(bodyBuffer, signature, secret) {
     console.log(`   Signature: ${signature}`);
     console.log(`   Secret length: ${secret.length}`);
 
+    // Shopify sends HMAC in hex format, not base64
     const calculatedSignature = createHmac("sha256", secret)
       .update(bodyBuffer)
-      .digest("base64");
+      .digest("hex");
 
-    console.log(`   Calculated: ${calculatedSignature}`);
+    console.log(`   Calculated (hex): ${calculatedSignature}`);
     console.log(`   Match: ${calculatedSignature === signature}`);
 
     if (calculatedSignature === signature) return true;
 
-    const providedSigBuffer = Buffer.from(signature, "base64");
-    const calculatedSigBuffer = Buffer.from(calculatedSignature, "base64");
+    // Use timing-safe comparison for additional security
+    const providedSigBuffer = Buffer.from(signature, "hex");
+    const calculatedSigBuffer = Buffer.from(calculatedSignature, "hex");
 
     if (providedSigBuffer.length !== calculatedSigBuffer.length) {
       console.error("❌ Signature length mismatch");
