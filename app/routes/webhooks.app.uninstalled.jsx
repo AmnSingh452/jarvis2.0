@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-console.log(`🔔 webhooks.app.uninstalled.jsx FIXED VERSION v3.1 - HMAC HEX FIX loaded at ${new Date().toISOString()}`);
+console.log(`🔔 webhooks.app.uninstalled.jsx ROBUST VERSION v3.2 - Step-by-step cleanup + timeout protection loaded at ${new Date().toISOString()}`);
 
 function verifyWebhookSignature(bodyBuffer, signature, secret) {
   if (!signature || !secret) {
@@ -93,7 +93,17 @@ export const action = async ({ request }) => {
   }
 
   try {
-    const { shop, topic } = await authenticate.webhook(request);
+    // Add timeout to prevent webhook hangs (Shopify has 5 second timeout)
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Webhook timeout after 4 seconds')), 4000);
+    });
+
+    const authResult = await Promise.race([
+      authenticate.webhook(request),
+      timeoutPromise
+    ]);
+    
+    const { shop, topic } = authResult;
     return await processUninstall(shop, db);
   } catch (authError) {
     console.error(`❌ Shopify authentication failed: ${authError.message}`);
@@ -107,64 +117,51 @@ export const action = async ({ request }) => {
 
 async function processUninstall(shop, db) {
   console.log(`🧹 Starting uninstall cleanup for ${shop}`);
+  
   try {
-    // Use transaction for atomic operations
-    const result = await db.$transaction(async (tx) => {
-      // 1. Delete all sessions
-      const deletedSessions = await tx.session.deleteMany({ 
-        where: { shop } 
-      });
-
-      // 2. Update and nullify access tokens - THIS IS THE KEY FIX
-      const updatedShop = await tx.shop.updateMany({
-        where: { shopDomain: shop },
-        data: { 
-          isActive: false, 
-          uninstalledAt: new Date(), 
-          accessToken: null, // Critical: Clear the access token
-          tokenVersion: { increment: 1 } // Invalidate any cached tokens
-        },
-      });
-
-      // 3. Also clean up potential shop name variations
-      const cleanupVariations = await tx.shop.updateMany({
-        where: {
-          OR: [
-            { shopDomain: { contains: shop.replace('.myshopify.com', '') } },
-            { shopDomain: shop }
-          ]
-        },
-        data: { 
-          isActive: false, 
-          accessToken: null,
-          uninstalledAt: new Date(),
-          tokenVersion: { increment: 1 }
-        }
-      });
-
-      // 4. Clean up related data
-      await tx.widgetSettings.deleteMany({ where: { shopDomain: shop } });
-      await tx.subscription.deleteMany({ where: { shopDomain: shop } });
-      await tx.installationLog.deleteMany({ where: { shopDomain: shop } });
-
-      return {
-        deletedSessions: deletedSessions.count,
-        updatedShop: updatedShop.count,
-        cleanupVariations: cleanupVariations.count
-      };
+    // Step 1: Delete sessions (most critical)
+    console.log(`🧹 Step 1: Deleting sessions for ${shop}`);
+    const deletedSessions = await db.session.deleteMany({ 
+      where: { shop } 
     });
+    console.log(`✅ Deleted ${deletedSessions.count} sessions`);
 
-    console.log(`✅ Uninstall cleanup completed for ${shop}:`);
-    console.log(`   - Deleted sessions: ${result.deletedSessions}`);
-    console.log(`   - Updated shop records: ${result.updatedShop}`);
-    console.log(`   - Cleanup variations: ${result.cleanupVariations}`);
-    
+    // Step 2: Update shop records (nullify tokens)
+    console.log(`🧹 Step 2: Updating shop records for ${shop}`);
+    const updatedShop = await db.shop.updateMany({
+      where: { shopDomain: shop },
+      data: { 
+        isActive: false, 
+        uninstalledAt: new Date(), 
+        accessToken: null, // Critical: Clear the access token
+        tokenVersion: { increment: 1 } // Invalidate any cached tokens
+      },
+    });
+    console.log(`✅ Updated ${updatedShop.count} shop records`);
+
+    // Step 3: Clean up related data (non-critical, continue on error)
+    try {
+      console.log(`🧹 Step 3: Cleaning up related data for ${shop}`);
+      await db.widgetSettings.deleteMany({ where: { shopDomain: shop } });
+      await db.subscription.deleteMany({ where: { shopDomain: shop } });
+      await db.installationLog.deleteMany({ where: { shopDomain: shop } });
+      console.log(`✅ Cleaned up related data`);
+    } catch (cleanupErr) {
+      console.warn(`⚠️ Related data cleanup failed (non-critical):`, cleanupErr.message);
+    }
+
+    console.log(`✅ Uninstall cleanup completed for ${shop}`);
     return new Response("OK", { status: 200 });
+    
   } catch (err) {
     console.error(`❌ Uninstall cleanup failed for ${shop}:`, err);
+    console.error(`❌ Error details:`, {
+      message: err.message,
+      code: err.code,
+      stack: err.stack?.substring(0, 500)
+    });
     
     // CRITICAL FIX: Return 200 even on error to prevent Shopify retries
-    // Log the error but don't make Shopify think the webhook failed
     return new Response(JSON.stringify({
       success: false,
       error: err.message,
