@@ -17,34 +17,66 @@ export async function action({ request }) {
     console.log(`🧹 Manual token cleanup requested for shop: ${shop}, action: ${action}`);
 
     if (action === "force_cleanup") {
-      // Complete cleanup - remove all tokens and sessions
-      const deletedSessions = await db.session.deleteMany({
-        where: { shop }
-      });
+      // Complete cleanup - remove all tokens and sessions using transaction
+      const result = await db.$transaction(async (tx) => {
+        // 1. Delete all sessions
+        const deletedSessions = await tx.session.deleteMany({
+          where: { shop }
+        });
 
-      // Mark shop as inactive and clear all tokens
-      const shopUpdate = await db.shop.updateMany({
-        where: { shopDomain: shop },
-        data: { 
-          isActive: false,
-          accessToken: null,
-          uninstalledAt: new Date(),
-          tokenVersion: { increment: 1 }, // Increment to invalidate old tokens
-          updatedAt: new Date()
-        }
+        // 2. Mark shop as inactive and clear all tokens
+        const shopUpdate = await tx.shop.updateMany({
+          where: { shopDomain: shop },
+          data: { 
+            isActive: false,
+            accessToken: null, // Critical: Clear the access token
+            uninstalledAt: new Date(),
+            tokenVersion: { increment: 1 }, // Increment to invalidate old tokens
+            updatedAt: new Date()
+          }
+        });
+
+        // 3. Also clean up potential shop name variations
+        const cleanupVariations = await tx.shop.updateMany({
+          where: {
+            OR: [
+              { shopDomain: { contains: shop.replace('.myshopify.com', '') } },
+              { shopDomain: shop }
+            ]
+          },
+          data: { 
+            isActive: false,
+            accessToken: null,
+            uninstalledAt: new Date(),
+            tokenVersion: { increment: 1 },
+            updatedAt: new Date()
+          }
+        });
+
+        // 4. Clean up related data
+        await tx.widgetSettings.deleteMany({ where: { shopDomain: shop } });
+        await tx.subscription.deleteMany({ where: { shopDomain: shop } });
+
+        return {
+          deletedSessions: deletedSessions.count,
+          updatedShops: shopUpdate.count,
+          cleanupVariations: cleanupVariations.count
+        };
       });
 
       console.log(`✅ Force cleanup completed:`);
-      console.log(`   - Deleted ${deletedSessions.count} sessions`);
-      console.log(`   - Updated ${shopUpdate.count} shop records`);
+      console.log(`   - Deleted ${result.deletedSessions} sessions`);
+      console.log(`   - Updated ${result.updatedShops} shop records`);
+      console.log(`   - Cleanup variations ${result.cleanupVariations} records`);
 
       return json({
         success: true,
         message: "Force cleanup completed - fresh authentication required",
         details: {
           shop,
-          deletedSessions: deletedSessions.count,
-          updatedShops: shopUpdate.count,
+          deletedSessions: result.deletedSessions,
+          updatedShops: result.updatedShops,
+          cleanupVariations: result.cleanupVariations,
           action: "force_cleanup",
           timestamp: new Date().toISOString()
         }

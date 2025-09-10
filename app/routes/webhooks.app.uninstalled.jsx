@@ -106,19 +106,93 @@ export const action = async ({ request }) => {
 async function processUninstall(shop, db) {
   console.log(`🧹 Starting uninstall cleanup for ${shop}`);
   try {
-    await db.session.deleteMany({ where: { shop } });
-    await db.shop.updateMany({
-      where: { shopDomain: shop },
-      data: { isActive: false, uninstalledAt: new Date(), accessToken: null },
-    });
-    await db.widgetSettings.deleteMany({ where: { shopDomain: shop } });
-    await db.subscription.deleteMany({ where: { shopDomain: shop } });
-    await db.installationLog.deleteMany({ where: { shopDomain: shop } });
+    // Use transaction for atomic operations
+    const result = await db.$transaction(async (tx) => {
+      // 1. Delete all sessions
+      const deletedSessions = await tx.session.deleteMany({ 
+        where: { shop } 
+      });
 
-    console.log(`✅ Cleanup complete for ${shop}`);
+      // 2. Update and nullify access tokens - THIS IS THE KEY FIX
+      const updatedShop = await tx.shop.updateMany({
+        where: { shopDomain: shop },
+        data: { 
+          isActive: false, 
+          uninstalledAt: new Date(), 
+          accessToken: null, // Critical: Clear the access token
+          tokenVersion: { increment: 1 }, // Invalidate any cached tokens
+          updatedAt: new Date()
+        },
+      });
+
+      // 3. Also clean up potential shop name variations
+      const cleanupVariations = await tx.shop.updateMany({
+        where: {
+          OR: [
+            { shopDomain: { contains: shop.replace('.myshopify.com', '') } },
+            { shopDomain: shop }
+          ]
+        },
+        data: { 
+          isActive: false, 
+          accessToken: null,
+          uninstalledAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+
+      // 4. Clean up related data
+      await tx.widgetSettings.deleteMany({ where: { shopDomain: shop } });
+      await tx.subscription.deleteMany({ where: { shopDomain: shop } });
+      await tx.installationLog.deleteMany({ where: { shopDomain: shop } });
+
+      return {
+        deletedSessions: deletedSessions.count,
+        updatedShop: updatedShop.count,
+        cleanupVariations: cleanupVariations.count
+      };
+    });
+
+    console.log(`✅ Uninstall cleanup completed for ${shop}:`);
+    console.log(`   - Deleted sessions: ${result.deletedSessions}`);
+    console.log(`   - Updated shop records: ${result.updatedShop}`);
+    console.log(`   - Cleanup variations: ${result.cleanupVariations}`);
+    
     return new Response("OK", { status: 200 });
   } catch (err) {
     console.error(`❌ Uninstall cleanup failed for ${shop}:`, err);
-    return new Response("Cleanup Failed", { status: 500 });
+    
+    // CRITICAL FIX: Return 200 even on error to prevent Shopify retries
+    // Log the error but don't make Shopify think the webhook failed
+    return new Response(JSON.stringify({
+      success: false,
+      error: err.message,
+      shop: shop,
+      timestamp: new Date().toISOString()
+    }), { 
+      status: 200, // Changed from 500 to 200
+      headers: { "Content-Type": "application/json" }
+    });
   }
 }
+
+// Add GET handler for testing
+export const loader = async ({ request }) => {
+  console.log(`🔔 GET request to app uninstalled webhook at ${new Date().toISOString()}`);
+  
+  return new Response(JSON.stringify({
+    message: "App uninstallation webhook endpoint",
+    status: "active",
+    version: "v3.1",
+    timestamp: new Date().toISOString(),
+    features: [
+      "HMAC verification",
+      "Transaction-based cleanup",
+      "Token nullification",
+      "200 status on errors (prevents retries)"
+    ]
+  }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+};
