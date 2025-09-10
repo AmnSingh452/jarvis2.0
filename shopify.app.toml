@@ -3,7 +3,7 @@
 client_id = "3ea38032bd55fb833a9f5dfd0ca9d4d0"
 name = "jarvis2.0"
 handle = "jarvis2-0"
-application_url = "https://jarvis2-0.onrender.com"
+application_url = "https://jarvis2-0-djg1.onrender.com"
 embedded = true
 
 [build]
@@ -46,7 +46,7 @@ api_version = "2025-07"
 scopes = "read_customers,read_discounts,read_fulfillments,read_orders,read_product_listings,read_products,write_discounts,write_payment_terms,write_products"
 
 [auth]
-redirect_urls = ["https://jarvis2-0.onrender.com/auth/callback", "https://jarvis2-0.onrender.com/auth/shopify/callback", "https://jarvis2-0.onrender.com/api/auth/callback"]
+redirect_urls = ["https://jarvis2-0-djg1.onrender.com/auth/callback", "https://jarvis2-0-djg1.onrender.com/auth/shopify/callback", "https://jarvis2-0-djg1.onrender.com/api/auth/callback"]
 
 [app_proxy]
 url = "https://jarvis2-0.onrender.com/a/jarvis-proxy"
