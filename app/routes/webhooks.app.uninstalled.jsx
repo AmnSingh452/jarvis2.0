@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-console.log(`🔔 webhooks.app.uninstalled.jsx ROBUST VERSION v3.2 - Step-by-step cleanup + timeout protection loaded at ${new Date().toISOString()}`);
+console.log(`🔔 webhooks.app.uninstalled.jsx ROBUST VERSION v3.3 - Dual HMAC verification (base64+hex) loaded at ${new Date().toISOString()}`);
 
 function verifyWebhookSignature(bodyBuffer, signature, secret) {
   if (!signature || !secret) {
@@ -14,26 +14,51 @@ function verifyWebhookSignature(bodyBuffer, signature, secret) {
     console.log(`   Signature: ${signature}`);
     console.log(`   Secret length: ${secret.length}`);
 
-    // Shopify sends HMAC in hex format, not base64
-    const calculatedSignature = createHmac("sha256", secret)
+    // Try base64 first (most common for webhooks)
+    const calculatedSignatureBase64 = createHmac("sha256", secret)
+      .update(bodyBuffer)
+      .digest("base64");
+
+    console.log(`   Calculated (base64): ${calculatedSignatureBase64}`);
+    console.log(`   Base64 Match: ${calculatedSignatureBase64 === signature}`);
+
+    if (calculatedSignatureBase64 === signature) return true;
+
+    // Try hex format as fallback
+    const calculatedSignatureHex = createHmac("sha256", secret)
       .update(bodyBuffer)
       .digest("hex");
 
-    console.log(`   Calculated (hex): ${calculatedSignature}`);
-    console.log(`   Match: ${calculatedSignature === signature}`);
+    console.log(`   Calculated (hex): ${calculatedSignatureHex}`);
+    console.log(`   Hex Match: ${calculatedSignatureHex === signature}`);
 
-    if (calculatedSignature === signature) return true;
+    if (calculatedSignatureHex === signature) return true;
 
-    // Use timing-safe comparison for additional security
-    const providedSigBuffer = Buffer.from(signature, "hex");
-    const calculatedSigBuffer = Buffer.from(calculatedSignature, "hex");
+    // Use timing-safe comparison for base64
+    try {
+      const providedSigBuffer = Buffer.from(signature, "base64");
+      const calculatedSigBuffer = Buffer.from(calculatedSignatureBase64, "base64");
 
-    if (providedSigBuffer.length !== calculatedSigBuffer.length) {
-      console.error("❌ Signature length mismatch");
-      return false;
+      if (providedSigBuffer.length === calculatedSigBuffer.length) {
+        return timingSafeEqual(providedSigBuffer, calculatedSigBuffer);
+      }
+    } catch (base64Error) {
+      console.log(`   Base64 timing-safe comparison failed: ${base64Error.message}`);
     }
 
-    return timingSafeEqual(providedSigBuffer, calculatedSigBuffer);
+    // Use timing-safe comparison for hex
+    try {
+      const providedSigBuffer = Buffer.from(signature, "hex");
+      const calculatedSigBuffer = Buffer.from(calculatedSignatureHex, "hex");
+
+      if (providedSigBuffer.length === calculatedSigBuffer.length) {
+        return timingSafeEqual(providedSigBuffer, calculatedSigBuffer);
+      }
+    } catch (hexError) {
+      console.log(`   Hex timing-safe comparison failed: ${hexError.message}`);
+    }
+
+    return false;
   } catch (err) {
     console.error("❌ Error verifying webhook signature:", err);
     return false;
@@ -181,10 +206,10 @@ export const loader = async ({ request }) => {
   return new Response(JSON.stringify({
     message: "App uninstallation webhook endpoint",
     status: "active",
-    version: "v3.2",
+    version: "v3.3",
     timestamp: new Date().toISOString(),
     features: [
-      "HMAC verification",
+      "Dual HMAC verification (base64+hex)",
       "Step-by-step cleanup (no transaction)",
       "Token nullification",
       "Timeout protection (4s)",
