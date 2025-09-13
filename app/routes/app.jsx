@@ -40,7 +40,7 @@ export default function App() {
         <Link to="/app/widget-settings">
           Widget Settings
         </Link>
-        <Link to="/app/billing">
+        <Link to="/app/billing_v2">
           Billing & Plans
         </Link>
         <Link to="/app/additional">

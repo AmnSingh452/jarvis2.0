@@ -26,6 +26,31 @@ export const loader = async ({ request }) => {
     scopes: session?.scope
   });
   
+  // Ensure shop data is saved to Shop table (fix for external API integration)
+  if (session && session.shop && session.accessToken) {
+    try {
+      const db = await import("../db.server");
+      await db.default.shop.upsert({
+        where: { shopDomain: session.shop },
+        update: {
+          accessToken: session.accessToken,
+          isActive: true,
+          uninstalledAt: null
+        },
+        create: {
+          shopDomain: session.shop,
+          accessToken: session.accessToken,
+          installedAt: new Date(),
+          isActive: true,
+          tokenVersion: 1
+        }
+      });
+      console.log(`✅ Shop data ensured in database for: ${session.shop}`);
+    } catch (dbError) {
+      console.error("❌ Failed to ensure shop data:", dbError);
+    }
+  }
+  
   // Check if this is a fresh installation
   try {
     const { verifyFreshInstallation } = await import("../../cleanup-db.js");
@@ -182,7 +207,7 @@ export default function Index() {
                         </Text>
                         <InlineStack gap="200">
                           <Button 
-                            url="/app/billing" 
+                            url="/app/billing_v2" 
                             variant="primary"
                           >
                             Manage Billing
@@ -435,7 +460,7 @@ export default function Index() {
                       - Get started with Jarvis features
                     </List.Item>
                     <List.Item>
-                      <Link url="/app/billing" removeUnderline>
+                      <Link url="/app/billing_v2" removeUnderline>
                         Billing & Plans
                       </Link>{" "}
                       - Manage subscription and usage

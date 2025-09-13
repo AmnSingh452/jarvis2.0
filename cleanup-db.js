@@ -54,12 +54,40 @@ export async function verifyFreshInstallation(shopDomain) {
       where: { shopDomain: shopDomain }
     });
     
-    const hasOldData = existingSessions.length > 0 || existingShops.length > 0;
+    // Auto-fix: If session exists but shop record doesn't, create it
+    if (existingSessions.length > 0 && existingShops.length === 0) {
+      console.log(`🔧 Auto-fixing: Adding shop record for ${shopDomain}`);
+      const latestSession = existingSessions[0];
+      
+      if (latestSession.accessToken) {
+        try {
+          await prisma.shop.create({
+            data: {
+              shopDomain: shopDomain,
+              accessToken: latestSession.accessToken,
+              installedAt: new Date(),
+              isActive: true,
+              tokenVersion: 1
+            }
+          });
+          console.log(`✅ Shop record created for ${shopDomain}`);
+        } catch (createError) {
+          console.error(`❌ Failed to create shop record:`, createError);
+        }
+      }
+    }
+    
+    // Re-fetch after potential fix
+    const updatedShops = await prisma.shop.findMany({
+      where: { shopDomain: shopDomain }
+    });
+    
+    const hasOldData = existingSessions.length > 0 || updatedShops.length > 0;
     
     if (hasOldData) {
-      console.log(`⚠️ Found old data for ${shopDomain}:`);
-      console.log(`   - Old sessions: ${existingSessions.length}`);
-      console.log(`   - Old shop records: ${existingShops.length}`);
+      console.log(`⚠️ Found data for ${shopDomain}:`);
+      console.log(`   - Sessions: ${existingSessions.length}`);
+      console.log(`   - Shop records: ${updatedShops.length}`);
     } else {
       console.log(`✅ Fresh installation confirmed for ${shopDomain}`);
     }
@@ -67,7 +95,8 @@ export async function verifyFreshInstallation(shopDomain) {
     return {
       isFresh: !hasOldData,
       oldSessions: existingSessions.length,
-      oldShops: existingShops.length
+      oldShops: updatedShops.length,
+      hasValidToken: existingSessions.length > 0 && existingSessions[0].accessToken ? true : false
     };
     
   } catch (error) {
