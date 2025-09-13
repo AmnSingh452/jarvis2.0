@@ -466,16 +466,101 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
 }
 
 async function handleRecommendations(request: Request, session: any | null, shop: string) {
-  // Handle product recommendations
-  return json({
-    success: true,
-    shop: shop,
-    recommendations: [],
-    message: "No recommendations available",
-    timestamp: new Date().toISOString()
-  }, {
-    headers: corsHeaders
-  });
+  // Handle product recommendations by forwarding to external API
+  try {
+    console.log("🛍️ Handling recommendations request for shop:", shop);
+    
+    const body = await request.text();
+    console.log("🛍️ Request body:", body);
+
+    // Get access token for the shop
+    let accessToken = null;
+    if (session && session.accessToken) {
+      accessToken = session.accessToken;
+      console.log("🛍️ Using session access token");
+    } else {
+      // Try to get token from database
+      try {
+        const db = (await import("../db.server")).default;
+        const shopRecord = await db.shop.findUnique({
+          where: { shopDomain: shop }
+        });
+        if (shopRecord && shopRecord.accessToken) {
+          accessToken = shopRecord.accessToken;
+          console.log("🛍️ Using database access token");
+        }
+      } catch (dbError) {
+        console.error("❌ Failed to get token from database:", dbError);
+      }
+    }
+
+    // Prepare payload for external API
+    let payload;
+    try {
+      payload = JSON.parse(body || '{}');
+    } catch {
+      payload = {};
+    }
+
+    const externalPayload = {
+      ...payload,
+      shop_domain: shop,
+      access_token: accessToken
+    };
+
+    console.log("🛍️ Forwarding to external recommendations API");
+
+    // Forward to external API
+    const response = await fetch("https://cartrecover-bot.onrender.com/api/recommendations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Shopify-Chatbot-Proxy/1.0"
+      },
+      body: JSON.stringify(externalPayload)
+    });
+
+    const responseText = await response.text();
+    console.log("🛍️ External API response:", response.status, responseText);
+
+    // Parse and return the response
+    let externalData;
+    try {
+      externalData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("❌ Failed to parse external recommendations response:", parseError);
+      return json({
+        success: false,
+        shop: shop,
+        recommendations: [],
+        message: "Failed to get recommendations",
+        error: "External API parse error",
+        timestamp: new Date().toISOString()
+      }, {
+        status: 500,
+        headers: corsHeaders
+      });
+    }
+
+    return json(externalData, {
+      status: response.status,
+      headers: corsHeaders
+    });
+
+  } catch (error) {
+    console.error("❌ Recommendations handler error:", error);
+    return json({
+      success: false,
+      shop: shop,
+      recommendations: [],
+      message: "Recommendations temporarily unavailable",
+      error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString()
+    }, {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
 }
 
 async function handleCustomerUpdate(request: Request, session: any | null, shop: string) {
