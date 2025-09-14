@@ -200,7 +200,27 @@ export default function Index() {
                     <Card background="bg-surface-secondary">
                       <BlockStack gap="300">
                         <Text as="h3" variant="headingMd">
-                          💳 Billing & Plans
+                          � Analytics & Insights
+                        </Text>
+                        <Text variant="bodyMd" as="p">
+                          View detailed performance metrics, customer satisfaction scores, and AI-powered business insights.
+                        </Text>
+                        <InlineStack gap="200">
+                          <Button 
+                            url="/app/analytics" 
+                            variant="primary"
+                          >
+                            View Analytics
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </Card>
+                  </Layout.Section>
+                  <Layout.Section variant="oneHalf">
+                    <Card background="bg-surface-secondary">
+                      <BlockStack gap="300">
+                        <Text as="h3" variant="headingMd">
+                          �💳 Billing & Plans
                         </Text>
                         <Text variant="bodyMd" as="p">
                           Manage your subscription, view usage analytics, and upgrade your plan for more features.
