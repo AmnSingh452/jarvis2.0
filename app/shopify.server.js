@@ -23,6 +23,19 @@ const shopify = shopifyApp({
   useOnlineTokens: false,
   // Add embedded app configuration
   isEmbeddedApp: true,
+  // Configure billing plans
+  billing: {
+    "Essential Chat": {
+      amount: 14.99,
+      currencyCode: "USD",
+      interval: "EVERY_30_DAYS",
+    },
+    "Sales Pro": {
+      amount: 39.99,
+      currencyCode: "USD", 
+      interval: "EVERY_30_DAYS",
+    },
+  },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
