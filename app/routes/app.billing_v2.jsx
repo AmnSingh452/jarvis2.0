@@ -73,6 +73,17 @@ export default function BillingPage() {
     submit(formData, { method: "POST" });
   };
 
+  const handleContactSupport = () => {
+    const supportEmail = "support@jarvisai.app";
+    const subject = `Billing Support - ${shop}`;
+    const body = `Hello,\n\nI need assistance with billing for my store: ${shop}\n\nPlease describe your issue below:\n\n`;
+    
+    const mailtoUrl = `mailto:${supportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    // Try to open in a new window/tab for better compatibility
+    window.open(mailtoUrl, '_blank');
+  };
+
   const currentPlan = billingStatus?.plan;
   const isSubscribed = billingStatus?.hasActivePayment;
 
@@ -188,8 +199,7 @@ export default function BillingPage() {
                 our team is here to help.
               </Text>
               <Button 
-                external 
-                url="mailto:support@jarvisai.app?subject=Billing Support"
+                onClick={handleContactSupport}
               >
                 Contact Billing Support
               </Button>
