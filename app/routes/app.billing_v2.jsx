@@ -8,8 +8,6 @@ import {
     List,
     Banner
 } from "@shopify/polaris";
-import { useAppBridge } from "@shopify/app-bridge-react";
-import { Redirect } from "@shopify/app-bridge/actions";
 import { useLoaderData } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
@@ -30,7 +28,6 @@ export async function loader({ request }) {
 }
 
 export default function Billing() {
-    const app = useAppBridge();
     const { shopDomain, storeHandle, appHandle } = useLoaderData();
     const [isLoading, setIsLoading] = useState(false);
     
@@ -40,35 +37,25 @@ export default function Billing() {
             shopDomain,
             storeHandle, 
             appHandle,
-            appBridge: !!app
+            appBridge: 'Available'
         });
-    }, [shopDomain, storeHandle, appHandle, app]);
+    }, [shopDomain, storeHandle, appHandle]);
     
     const handleUpgrade = () => {
         console.log('handleUpgrade called');
         setIsLoading(true);
         
-        // Use Shopify App Bridge to navigate to pricing plans
         try {
-            if (!app) {
-                throw new Error('App Bridge not available');
-            }
-            
-            const redirect = Redirect.create(app);
-            const pricingPath = `/charges/${appHandle}/pricing_plans`;
-            console.log('Redirecting to pricing plans via App Bridge:', pricingPath);
-            
-            redirect.dispatch(Redirect.Action.ADMIN_PATH, {
-                path: pricingPath
-            });
-        } catch (error) {
-            console.error('App Bridge redirect failed, using fallback:', error);
-            // Fallback: Use direct URL
+            // Direct navigation to Shopify managed pricing
             const managedPricingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
-            console.log('Using fallback URL:', managedPricingUrl);
-            window.open(managedPricingUrl, '_top');
+            console.log('Redirecting to pricing plans:', managedPricingUrl);
+            window.top.location.href = managedPricingUrl;
+        } catch (error) {
+            console.error('Redirect failed:', error);
+            // Fallback
+            window.open(`https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`, '_top');
         } finally {
-            setIsLoading(false);
+            setTimeout(() => setIsLoading(false), 1000);
         }
     };
 
@@ -76,27 +63,17 @@ export default function Billing() {
         console.log('handleManageBilling called');
         setIsLoading(true);
         
-        // Use Shopify App Bridge to navigate to billing management
         try {
-            if (!app) {
-                throw new Error('App Bridge not available');
-            }
-            
-            const redirect = Redirect.create(app);
-            const billingPath = `/charges/${appHandle}`;
-            console.log('Redirecting to billing management via App Bridge:', billingPath);
-            
-            redirect.dispatch(Redirect.Action.ADMIN_PATH, {
-                path: billingPath
-            });
-        } catch (error) {
-            console.error('App Bridge redirect failed, using fallback:', error);
-            // Fallback: Use direct URL in same window
+            // Direct navigation to billing management
             const billingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}`;
-            console.log('Using fallback URL:', billingUrl);
-            window.open(billingUrl, '_top');
+            console.log('Redirecting to billing management:', billingUrl);
+            window.top.location.href = billingUrl;
+        } catch (error) {
+            console.error('Redirect failed:', error);
+            // Fallback
+            window.open(`https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}`, '_top');
         } finally {
-            setIsLoading(false);
+            setTimeout(() => setIsLoading(false), 1000);
         }
     };
 
@@ -104,27 +81,17 @@ export default function Billing() {
         console.log('handleViewCurrentPlan called');
         setIsLoading(true);
         
-        // Navigate to app subscriptions page
         try {
-            if (!app) {
-                throw new Error('App Bridge not available');
-            }
-            
-            const redirect = Redirect.create(app);
-            const appPath = `/apps/${appHandle}`;
-            console.log('Redirecting to current plan via App Bridge:', appPath);
-            
-            redirect.dispatch(Redirect.Action.ADMIN_PATH, {
-                path: appPath
-            });
-        } catch (error) {
-            console.error('App Bridge redirect failed, using fallback:', error);
-            // Fallback: Use direct URL
+            // Navigate to app subscriptions page
             const appUrl = `https://admin.shopify.com/store/${storeHandle}/apps/${appHandle}`;
-            console.log('Using fallback URL:', appUrl);
-            window.open(appUrl, '_top');
+            console.log('Redirecting to current plan:', appUrl);
+            window.top.location.href = appUrl;
+        } catch (error) {
+            console.error('Redirect failed:', error);
+            // Fallback
+            window.open(`https://admin.shopify.com/store/${storeHandle}/apps/${appHandle}`, '_top');
         } finally {
-            setIsLoading(false);
+            setTimeout(() => setIsLoading(false), 1000);
         }
     };
 
