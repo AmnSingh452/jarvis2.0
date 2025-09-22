@@ -9,9 +9,11 @@ import {
     Banner
 } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
+import { Redirect } from "@shopify/app-bridge/actions";
 import { useLoaderData } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
+import { useEffect, useState } from "react";
 
 export async function loader({ request }) {
   const { admin, session } = await authenticate.admin(request);
@@ -30,28 +32,106 @@ export async function loader({ request }) {
 export default function Billing() {
     const app = useAppBridge();
     const { shopDomain, storeHandle, appHandle } = useLoaderData();
+    const [isLoading, setIsLoading] = useState(false);
+    
+    // Debug logging
+    useEffect(() => {
+        console.log('Billing component loaded:', {
+            shopDomain,
+            storeHandle, 
+            appHandle,
+            appBridge: !!app
+        });
+    }, [shopDomain, storeHandle, appHandle, app]);
     
     const handleUpgrade = () => {
-        // Redirect to Shopify's Managed Pricing page for plan selection
-        const managedPricingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
-        console.log('Redirecting to pricing plans:', managedPricingUrl);
+        console.log('handleUpgrade called');
+        setIsLoading(true);
         
-        // Open in new tab - works reliably across all environments
-        window.open(managedPricingUrl, '_blank');
+        // Use Shopify App Bridge to navigate to pricing plans
+        try {
+            if (!app) {
+                throw new Error('App Bridge not available');
+            }
+            
+            const redirect = Redirect.create(app);
+            const pricingPath = `/charges/${appHandle}/pricing_plans`;
+            console.log('Redirecting to pricing plans via App Bridge:', pricingPath);
+            
+            redirect.dispatch(Redirect.Action.ADMIN_PATH, {
+                path: pricingPath
+            });
+        } catch (error) {
+            console.error('App Bridge redirect failed, using fallback:', error);
+            // Fallback: Use direct URL
+            const managedPricingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
+            console.log('Using fallback URL:', managedPricingUrl);
+            window.open(managedPricingUrl, '_top');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleManageBilling = () => {
-        // Redirect to Shopify's billing management page
-        const billingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}`;
-        console.log('Redirecting to billing management:', billingUrl);
+        console.log('handleManageBilling called');
+        setIsLoading(true);
         
-        // Open in new tab - works reliably across all environments
-        window.open(billingUrl, '_blank');
+        // Use Shopify App Bridge to navigate to billing management
+        try {
+            if (!app) {
+                throw new Error('App Bridge not available');
+            }
+            
+            const redirect = Redirect.create(app);
+            const billingPath = `/charges/${appHandle}`;
+            console.log('Redirecting to billing management via App Bridge:', billingPath);
+            
+            redirect.dispatch(Redirect.Action.ADMIN_PATH, {
+                path: billingPath
+            });
+        } catch (error) {
+            console.error('App Bridge redirect failed, using fallback:', error);
+            // Fallback: Use direct URL in same window
+            const billingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}`;
+            console.log('Using fallback URL:', billingUrl);
+            window.open(billingUrl, '_top');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleViewCurrentPlan = () => {
+        console.log('handleViewCurrentPlan called');
+        setIsLoading(true);
+        
+        // Navigate to app subscriptions page
+        try {
+            if (!app) {
+                throw new Error('App Bridge not available');
+            }
+            
+            const redirect = Redirect.create(app);
+            const appPath = `/apps/${appHandle}`;
+            console.log('Redirecting to current plan via App Bridge:', appPath);
+            
+            redirect.dispatch(Redirect.Action.ADMIN_PATH, {
+                path: appPath
+            });
+        } catch (error) {
+            console.error('App Bridge redirect failed, using fallback:', error);
+            // Fallback: Use direct URL
+            const appUrl = `https://admin.shopify.com/store/${storeHandle}/apps/${appHandle}`;
+            console.log('Using fallback URL:', appUrl);
+            window.open(appUrl, '_top');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleContactSupport = () => {
+        console.log('handleContactSupport called');
         // Contact support for billing questions
-        const supportUrl = `mailto:billing@jarvis2-ai.com?subject=Billing Support - ${shopDomain}`;
+        const supportUrl = `mailto:support@jarvis2-ai.com?subject=Billing Support - ${shopDomain}&body=Hello,%0D%0A%0D%0AI need assistance with billing for my store: ${shopDomain}%0D%0A%0D%0APlease describe your issue below:%0D%0A`;
         window.open(supportUrl, '_blank');
     };
     return (
@@ -82,7 +162,7 @@ export default function Billing() {
                                 <List.Item>Up to 1,000 conversations/month</List.Item>
                                 <List.Item>Standard support</List.Item>
                             </List>
-                            <Button onClick={handleUpgrade} primary>
+                            <Button onClick={handleUpgrade} primary loading={isLoading}>
                                 Select Essential Chat
                             </Button>
                         </div>
@@ -105,7 +185,7 @@ export default function Billing() {
                                 <List.Item>Priority support (12hr response)</List.Item>
                                 <List.Item>Custom integration support</List.Item>
                             </List>
-                            <Button onClick={handleUpgrade} primary>
+                            <Button onClick={handleUpgrade} primary loading={isLoading}>
                                 Select Sales Pro
                             </Button>
                         </div>
@@ -120,8 +200,11 @@ export default function Billing() {
                                 Your subscription is managed through Shopify's billing system. All charges appear on your monthly Shopify invoice.
                             </Text>
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                <Button onClick={handleManageBilling}>
+                                <Button onClick={handleManageBilling} primary loading={isLoading}>
                                     Manage Plans
+                                </Button>
+                                <Button onClick={handleViewCurrentPlan} outline loading={isLoading}>
+                                    View Current Plan
                                 </Button>
                                 <Button onClick={handleContactSupport} outline>
                                     Contact Billing Support
