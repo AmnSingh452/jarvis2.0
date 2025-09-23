@@ -83,7 +83,7 @@ export async function loader({ request }) {
       .filter(day => day.customerSatisfaction)
       .reduce((sum, day, _, arr) => sum + day.customerSatisfaction / arr.length, 0);
 
-    // Get top questions (this would need more sophisticated text analysis in production)
+    // Get top questions from actual conversation topics and messages
     const allConversations = await prisma.chatConversation.findMany({
       where: {
         shopDomain,
@@ -104,20 +104,53 @@ export async function loader({ request }) {
       }
     });
 
-    // Simple topic analysis (in production, you'd use NLP)
+    // Analyze conversation topics and first user messages
     const topicCounts = {};
+    const questionCounts = {};
+    
     allConversations.forEach(conv => {
+      // Count topics
       const topic = conv.topic || 'General';
       topicCounts[topic] = (topicCounts[topic] || 0) + 1;
+      
+      // Count first user messages as questions
+      if (conv.chatMessages.length > 0) {
+        const firstMessage = conv.chatMessages[0].content;
+        // Simple question extraction (in production, use NLP)
+        const question = firstMessage.length > 50 
+          ? firstMessage.substring(0, 47) + "..." 
+          : firstMessage;
+        questionCounts[question] = (questionCounts[question] || 0) + 1;
+      }
     });
 
-    const topQuestions = Object.entries(topicCounts)
+    // Get top questions from both topics and actual messages
+    const topTopics = Object.entries(topicCounts)
       .sort(([,a], [,b]) => b - a)
-      .slice(0, 5)
+      .slice(0, 3)
       .map(([topic, count]) => ({
         question: getQuestionForTopic(topic),
         count
       }));
+
+    const topMessages = Object.entries(questionCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 2)
+      .map(([question, count]) => ({
+        question,
+        count
+      }));
+
+    // Combine and sort all questions
+    const allQuestions = [...topTopics, ...topMessages]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const topQuestions = allQuestions.length > 0 ? allQuestions : [
+      { question: "What are your shipping options?", count: 0 },
+      { question: "How can I track my order?", count: 0 },
+      { question: "What is your return policy?", count: 0 }
+    ];
 
     const analytics = {
       overview: {

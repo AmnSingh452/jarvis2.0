@@ -24,10 +24,10 @@ import {
 import { useState, useEffect } from "react";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   
   const url = new URL(request.url);
-  const shop = url.searchParams.get("shop") || "aman-chatbot-test.myshopify.com";
+  const shop = url.searchParams.get("shop") || session.shop;
   
   return json({
     shop: shop
