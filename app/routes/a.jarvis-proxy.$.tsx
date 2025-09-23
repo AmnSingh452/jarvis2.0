@@ -652,6 +652,8 @@ async function trackConversationBackground(payload: any, externalResponse: any, 
       }
     });
 
+    let isNewConversation = false;
+
     if (!conversation) {
       // Create new conversation
       const topic = extractTopicFromMessage(userMessage);
@@ -663,18 +665,16 @@ async function trackConversationBackground(payload: any, externalResponse: any, 
           customerIp: payload.customer_email || "anonymous@shop.local",
           topic: topic,
           status: "active",
+          totalMessages: 0, // Will be incremented below
           createdAt: new Date(),
           updatedAt: new Date()
         }
       });
       
+      isNewConversation = true;
       console.log("✅ New conversation tracked:", conversation.id);
     } else {
-      // Update existing conversation
-      await prisma.chatConversation.update({
-        where: { id: conversation.id },
-        data: { updatedAt: new Date() }
-      });
+      console.log("📝 Continuing existing conversation:", conversation.id);
     }
 
     // Add user message
@@ -697,6 +697,15 @@ async function trackConversationBackground(payload: any, externalResponse: any, 
       }
     });
 
+    // Update conversation with new message count and last updated time
+    await prisma.chatConversation.update({
+      where: { id: conversation.id },
+      data: {
+        totalMessages: { increment: 2 }, // User message + bot response
+        updatedAt: new Date()
+      }
+    });
+
     // Update analytics metrics
     const today = new Date().toISOString().split('T')[0];
     
@@ -712,12 +721,13 @@ async function trackConversationBackground(payload: any, externalResponse: any, 
       await prisma.analyticsMetrics.update({
         where: { id: existingMetrics.id },
         data: {
-          totalConversations: { increment: conversation.id === conversation.id ? 0 : 1 }, // Only increment for new conversations
-          uniqueVisitors: { increment: 1 },
-          totalMessages: { increment: 2 }, // User message + bot response
+          totalConversations: isNewConversation ? { increment: 1 } : existingMetrics.totalConversations, // Only increment for new conversations
+          uniqueVisitors: isNewConversation ? { increment: 1 } : existingMetrics.uniqueVisitors, // Only increment for new conversations
+          totalMessages: { increment: 2 }, // Always increment message count
           updatedAt: new Date()
         }
       });
+      console.log(`📊 Updated metrics - New conversation: ${isNewConversation}, Total messages incremented by 2`);
     } else {
       // Create new metrics for today
       await prisma.analyticsMetrics.create({
@@ -734,6 +744,7 @@ async function trackConversationBackground(payload: any, externalResponse: any, 
           ])
         }
       });
+      console.log("📊 Created new daily metrics");
     }
 
     await prisma.$disconnect();

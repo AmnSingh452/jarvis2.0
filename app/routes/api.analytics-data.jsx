@@ -146,11 +146,8 @@ export async function loader({ request }) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    const topQuestions = allQuestions.length > 0 ? allQuestions : [
-      { question: "What are your shipping options?", count: 0 },
-      { question: "How can I track my order?", count: 0 },
-      { question: "What is your return policy?", count: 0 }
-    ];
+    // Only show real questions if they exist, no fallback fake data
+    const topQuestions = allQuestions.length > 0 ? allQuestions : [];
 
     const analytics = {
       overview: {
