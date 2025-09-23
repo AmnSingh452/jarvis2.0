@@ -24,10 +24,10 @@ import {
 import { useState, useEffect } from "react";
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  await authenticate.admin(request);
   
   const url = new URL(request.url);
-  const shop = url.searchParams.get("shop") || session.shop;
+  const shop = url.searchParams.get("shop") || "aman-chatbot-test.myshopify.com";
   
   return json({
     shop: shop
@@ -58,8 +58,8 @@ export default function Analytics() {
       } catch (err) {
         console.error('Analytics fetch error:', err);
         setError(err.message);
-        // Set demo data for presentation
-        setAnalyticsData(getDemoAnalyticsData());
+        // No fallback data - show only real data for Shopify compliance
+        setAnalyticsData(null);
       } finally {
         setLoading(false);
       }
@@ -67,42 +67,6 @@ export default function Analytics() {
 
     fetchAnalytics();
   }, [shop, timeRange]);
-
-  // Demo data fallback for impressive presentation
-  const getDemoAnalyticsData = () => ({
-    overview: {
-      totalConversations: "1,247",
-      uniqueVisitors: "892",
-      responseRate: "89.2",
-      avgResponseTime: "1.3",
-      customerSatisfaction: "4.7",
-      conversionsGenerated: "156",
-      revenueGenerated: "18,432.50"
-    },
-    timeData: [
-      { date: "2025-09-07", conversations: 45, conversions: 8, revenue: 1250 },
-      { date: "2025-09-08", conversations: 52, conversions: 11, revenue: 1680 },
-      { date: "2025-09-09", conversations: 38, conversions: 6, revenue: 920 },
-      { date: "2025-09-10", conversations: 61, conversions: 14, revenue: 2140 },
-      { date: "2025-09-11", conversations: 57, conversions: 12, revenue: 1890 },
-      { date: "2025-09-12", conversations: 48, conversions: 9, revenue: 1380 },
-      { date: "2025-09-13", conversations: 43, conversions: 7, revenue: 1050 }
-    ],
-    topQuestions: [
-      { question: "What are your shipping options?", count: 89 },
-      { question: "How do I return an item?", count: 67 },
-      { question: "Is this item in stock?", count: 54 },
-      { question: "What payment methods do you accept?", count: 43 },
-      { question: "Can I track my order?", count: 38 }
-    ],
-    recentConversations: [
-      { id: 1, customer: "Sarah M.", topic: "Shipping", timestamp: "2 hours ago", status: "Converted", satisfaction: "Very Positive" },
-      { id: 2, customer: "Mike R.", topic: "Product", timestamp: "4 hours ago", status: "Resolved", satisfaction: "Positive" },
-      { id: 3, customer: "Emma L.", topic: "Returns", timestamp: "6 hours ago", status: "Active", satisfaction: "Positive" },
-      { id: 4, customer: "John D.", topic: "Payment", timestamp: "8 hours ago", status: "Converted", satisfaction: "Very Positive" },
-      { id: 5, customer: "Lisa K.", topic: "Stock", timestamp: "1 day ago", status: "Resolved", satisfaction: "Positive" }
-    ]
-  });
 
   const timeRangeOptions = [
     { label: "Last 7 days", value: "7" },
@@ -156,11 +120,20 @@ export default function Analytics() {
           <BlockStack gap="500">
             {error && (
               <Banner
-                title="Using Demo Data"
+                title="No Analytics Data Available"
                 status="info"
                 onDismiss={() => setError(null)}
               >
-                <p>Live analytics will be available once you have customer interactions. Showing demo data for presentation.</p>
+                <p>Analytics will be available once customers start interacting with your chatbot. Install the widget and start getting real customer conversations to see live data here.</p>
+              </Banner>
+            )}
+
+            {!analyticsData && !loading && !error && (
+              <Banner
+                title="Welcome to Analytics"
+                status="info"
+              >
+                <p>Your analytics dashboard is ready! Once customers start using your chatbot, you'll see real conversation data, metrics, and insights here.</p>
               </Banner>
             )}
 
@@ -181,7 +154,9 @@ export default function Analytics() {
                       <BlockStack gap="200">
                         <Text variant="bodyMd" color="subdued">Total Conversations</Text>
                         <Text variant="heading2xl">{analyticsData?.overview?.totalConversations || "0"}</Text>
-                        <Badge status="success">+28.5% vs last period</Badge>
+                        {analyticsData?.overview?.totalConversations > 0 && (
+                          <Badge status="info">Active tracking</Badge>
+                        )}
                       </BlockStack>
                     </Card>
                   </Grid.Cell>
@@ -191,7 +166,9 @@ export default function Analytics() {
                       <BlockStack gap="200">
                         <Text variant="bodyMd" color="subdued">Response Rate</Text>
                         <Text variant="heading2xl">{analyticsData?.overview?.responseRate || "0"}%</Text>
-                        <Badge status="success">+12.3% vs last period</Badge>
+                        {analyticsData?.overview?.responseRate > 80 && (
+                          <Badge status="success">Excellent</Badge>
+                        )}
                       </BlockStack>
                     </Card>
                   </Grid.Cell>
@@ -201,7 +178,9 @@ export default function Analytics() {
                       <BlockStack gap="200">
                         <Text variant="bodyMd" color="subdued">Avg Response Time</Text>
                         <Text variant="heading2xl">{analyticsData?.overview?.avgResponseTime || "0"}s</Text>
-                        <Badge status="success">-15.2% vs last period</Badge>
+                        {analyticsData?.overview?.avgResponseTime > 0 && analyticsData?.overview?.avgResponseTime < 3 && (
+                          <Badge status="success">Fast response</Badge>
+                        )}
                       </BlockStack>
                     </Card>
                   </Grid.Cell>
@@ -211,7 +190,9 @@ export default function Analytics() {
                       <BlockStack gap="200">
                         <Text variant="bodyMd" color="subdued">Customer Satisfaction</Text>
                         <Text variant="heading2xl">{analyticsData?.overview?.customerSatisfaction || "0"}/5</Text>
-                        <Badge status="success">+8.7% vs last period</Badge>
+                        {analyticsData?.overview?.customerSatisfaction >= 4.0 && (
+                          <Badge status="success">High satisfaction</Badge>
+                        )}
                       </BlockStack>
                     </Card>
                   </Grid.Cell>
@@ -221,7 +202,9 @@ export default function Analytics() {
                       <BlockStack gap="200">
                         <Text variant="bodyMd" color="subdued">Conversions</Text>
                         <Text variant="heading2xl">{analyticsData?.overview?.conversionsGenerated || "0"}</Text>
-                        <Badge status="success">+19.8% vs last period</Badge>
+                        {analyticsData?.overview?.conversionsGenerated > 0 && (
+                          <Badge status="success">Converting</Badge>
+                        )}
                       </BlockStack>
                     </Card>
                   </Grid.Cell>
@@ -231,7 +214,9 @@ export default function Analytics() {
                       <BlockStack gap="200">
                         <Text variant="bodyMd" color="subdued">Revenue Generated</Text>
                         <Text variant="heading2xl">${analyticsData?.overview?.revenueGenerated || "0"}</Text>
-                        <Badge status="success">+34.6% vs last period</Badge>
+                        {analyticsData?.overview?.revenueGenerated > 0 && (
+                          <Badge status="success">Revenue active</Badge>
+                        )}
                       </BlockStack>
                     </Card>
                   </Grid.Cell>
@@ -244,20 +229,25 @@ export default function Analytics() {
                 <Card>
                   <BlockStack gap="400">
                     <Text variant="headingMd">🎯 AI Insights & Recommendations</Text>
-                    <List type="bullet">
-                      <List.Item>
-                        <strong>Peak Hours:</strong> Most conversations happen between 2-4 PM. Consider optimizing response templates for this time.
-                      </List.Item>
-                      <List.Item>
-                        <strong>Top Converter:</strong> Shipping-related queries have the highest conversion rate (31.2%). Focus on shipping benefits.
-                      </List.Item>
-                      <List.Item>
-                        <strong>Opportunity:</strong> Return policy questions show lower satisfaction. Consider updating chatbot training.
-                      </List.Item>
-                      <List.Item>
-                        <strong>Growth Trend:</strong> Mobile conversations increased 45% this month. Optimize mobile experience.
-                      </List.Item>
-                    </List>
+                    {analyticsData && analyticsData.overview.totalConversations > 0 ? (
+                      <List type="bullet">
+                        <List.Item>
+                          <strong>Engagement:</strong> You have {analyticsData.overview.totalConversations} total conversations with a {analyticsData.overview.responseRate}% response rate.
+                        </List.Item>
+                        <List.Item>
+                          <strong>Performance:</strong> Average response time is {analyticsData.overview.avgResponseTime} seconds with {analyticsData.overview.customerSatisfaction}/5 satisfaction.
+                        </List.Item>
+                        {analyticsData.overview.conversionsGenerated > 0 && (
+                          <List.Item>
+                            <strong>Conversions:</strong> {analyticsData.overview.conversionsGenerated} conversions generated ${analyticsData.overview.revenueGenerated} in revenue.
+                          </List.Item>
+                        )}
+                      </List>
+                    ) : (
+                      <Text variant="bodyMd">
+                        Start getting customer interactions to see AI-powered insights and recommendations here.
+                      </Text>
+                    )}
                     
                     <Divider />
                     
@@ -265,10 +255,15 @@ export default function Analytics() {
                       <Text variant="bodyMd" tone="success">
                         <strong>🚀 Revenue Impact</strong>
                       </Text>
-                      <Text variant="bodySm">
-                        Your chatbot generated <strong>${analyticsData?.overview?.revenueGenerated || "18,432"}</strong> in revenue this period. 
-                        Based on current trends, projected monthly revenue: <strong>$23,156</strong>
-                      </Text>
+                      {analyticsData && analyticsData.overview.revenueGenerated > 0 ? (
+                        <Text variant="bodySm">
+                          Your chatbot generated <strong>${analyticsData.overview.revenueGenerated}</strong> in revenue this period.
+                        </Text>
+                      ) : (
+                        <Text variant="bodySm">
+                          Revenue tracking will appear here once customers start making purchases through chatbot interactions.
+                        </Text>
+                      )}
                     </BlockStack>
                   </BlockStack>
                 </Card>
@@ -278,24 +273,28 @@ export default function Analytics() {
                 <Card>
                   <BlockStack gap="400">
                     <Text variant="headingMd">📈 Growth Metrics</Text>
-                    <BlockStack gap="300">
-                      <InlineStack align="space-between">
-                        <Text variant="bodyMd">Month-over-Month Growth</Text>
-                        <Badge status="success">+28.5%</Badge>
-                      </InlineStack>
-                      <InlineStack align="space-between">
-                        <Text variant="bodyMd">Year-over-Year Growth</Text>
-                        <Badge status="success">+156%</Badge>
-                      </InlineStack>
-                      <InlineStack align="space-between">
-                        <Text variant="bodyMd">Customer Retention</Text>
-                        <Badge status="success">94.2%</Badge>
-                      </InlineStack>
-                      <InlineStack align="space-between">
-                        <Text variant="bodyMd">Avg. Order Value Impact</Text>
-                        <Badge status="success">+23.1%</Badge>
-                      </InlineStack>
-                    </BlockStack>
+                    {analyticsData && analyticsData.overview.totalConversations > 0 ? (
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between">
+                          <Text variant="bodyMd">Total Conversations</Text>
+                          <Badge>{analyticsData.overview.totalConversations}</Badge>
+                        </InlineStack>
+                        <InlineStack align="space-between">
+                          <Text variant="bodyMd">Response Rate</Text>
+                          <Badge status="success">{analyticsData.overview.responseRate}%</Badge>
+                        </InlineStack>
+                        {analyticsData.overview.conversionsGenerated > 0 && (
+                          <InlineStack align="space-between">
+                            <Text variant="bodyMd">Conversion Rate</Text>
+                            <Badge status="success">{((analyticsData.overview.conversionsGenerated / analyticsData.overview.totalConversations) * 100).toFixed(1)}%</Badge>
+                          </InlineStack>
+                        )}
+                      </BlockStack>
+                    ) : (
+                      <Text variant="bodyMd">
+                        Growth metrics will be calculated once you have customer conversations.
+                      </Text>
+                    )}
                     
                     <Divider />
                     
@@ -303,11 +302,28 @@ export default function Analytics() {
                       <Text variant="bodyMd" tone="success">
                         <strong>🎖️ Performance Rating</strong>
                       </Text>
-                      <Text variant="headingLg">Excellent (A+)</Text>
-                      <Text variant="bodySm">
-                        Your chatbot is performing in the top 10% of all Shopify chatbots. 
-                        Customer satisfaction and conversion rates exceed industry benchmarks.
-                      </Text>
+                      {analyticsData && analyticsData.overview.customerSatisfaction >= 4.0 ? (
+                        <>
+                          <Text variant="headingLg">Excellent</Text>
+                          <Text variant="bodySm">
+                            Customer satisfaction rating of {analyticsData.overview.customerSatisfaction}/5 indicates strong performance.
+                          </Text>
+                        </>
+                      ) : analyticsData && analyticsData.overview.customerSatisfaction >= 3.0 ? (
+                        <>
+                          <Text variant="headingLg">Good</Text>
+                          <Text variant="bodySm">
+                            Customer satisfaction rating of {analyticsData.overview.customerSatisfaction}/5 shows room for improvement.
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text variant="headingLg">Getting Started</Text>
+                          <Text variant="bodySm">
+                            Performance rating will appear here based on customer feedback and satisfaction scores.
+                          </Text>
+                        </>
+                      )}
                     </BlockStack>
                   </BlockStack>
                 </Card>
@@ -317,29 +333,36 @@ export default function Analytics() {
                 <Card>
                   <BlockStack gap="400">
                     <Text variant="headingMd">💡 Optimization Tips</Text>
-                    <List type="bullet">
-                      <List.Item>
-                        <strong>Quick Win:</strong> Add product recommendations to shipping queries for 15% more revenue
-                      </List.Item>
-                      <List.Item>
-                        <strong>Template Update:</strong> Personalize greetings based on returning customers
-                      </List.Item>
-                      <List.Item>
-                        <strong>Integration:</strong> Connect with email marketing for 25% better follow-up rates
-                      </List.Item>
-                      <List.Item>
-                        <strong>Expansion:</strong> Consider adding multilingual support for international growth
-                      </List.Item>
-                    </List>
+                    {analyticsData && analyticsData.overview.totalConversations > 0 ? (
+                      <List type="bullet">
+                        <List.Item>
+                          <strong>Response Time:</strong> {analyticsData.overview.avgResponseTime < 2 ? "Great response time! " : "Consider optimizing response speed. "}
+                          Current average: {analyticsData.overview.avgResponseTime}s
+                        </List.Item>
+                        <List.Item>
+                          <strong>Engagement:</strong> {analyticsData.overview.responseRate > 80 ? "Excellent engagement rate! " : "Work on improving response rate. "}
+                          Current rate: {analyticsData.overview.responseRate}%
+                        </List.Item>
+                        {analyticsData.overview.conversionsGenerated > 0 && (
+                          <List.Item>
+                            <strong>Conversions:</strong> You're successfully converting {((analyticsData.overview.conversionsGenerated / analyticsData.overview.totalConversations) * 100).toFixed(1)}% of conversations.
+                          </List.Item>
+                        )}
+                      </List>
+                    ) : (
+                      <Text variant="bodyMd">
+                        Personalized optimization recommendations will appear here based on your chatbot's performance data.
+                      </Text>
+                    )}
                     
                     <Divider />
                     
                     <ButtonGroup>
-                      <Button size="slim" variant="primary">
-                        Optimize Now
+                      <Button size="slim" variant="primary" url="/app/widget-settings">
+                        Optimize Settings
                       </Button>
-                      <Button size="slim">
-                        Schedule Call
+                      <Button size="slim" url="/app/billing_v2">
+                        Upgrade Plan
                       </Button>
                     </ButtonGroup>
                   </BlockStack>
