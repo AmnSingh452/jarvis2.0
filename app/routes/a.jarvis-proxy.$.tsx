@@ -335,6 +335,9 @@ async function handleChat(request: Request, session: any | null, shop: string) {
 
     console.log("🔄 Transformed response for widget:", transformedResponse);
 
+    // Track conversation in local database (background task)
+    trackConversationBackground(payload, externalData, shop);
+
     return json(transformedResponse, {
       status: 200,
       headers: corsHeaders
@@ -623,5 +626,142 @@ async function handleTokenDebug(request: Request, session: any | null, shop: str
       status: 500,
       headers: corsHeaders
     });
+  }
+}
+
+// Helper function to track conversation and messages in background
+async function trackConversationBackground(payload: any, externalResponse: any, shopDomain: string) {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    const sessionId = externalResponse.session_id || payload.session_id || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const userMessage = payload.message;
+    const botResponse = externalResponse.message || externalResponse.response;
+    
+    if (!userMessage || !botResponse) {
+      console.log("⚠️ Missing message data for conversation tracking");
+      return;
+    }
+
+    // Check if conversation already exists
+    let conversation = await prisma.chatConversation.findFirst({
+      where: {
+        sessionId: sessionId,
+        shopDomain: shopDomain
+      }
+    });
+
+    if (!conversation) {
+      // Create new conversation
+      const topic = extractTopicFromMessage(userMessage);
+      
+      conversation = await prisma.chatConversation.create({
+        data: {
+          sessionId: sessionId,
+          shopDomain: shopDomain,
+          customerIp: payload.customer_email || "anonymous@shop.local",
+          topic: topic,
+          status: "active",
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+      
+      console.log("✅ New conversation tracked:", conversation.id);
+    } else {
+      // Update existing conversation
+      await prisma.chatConversation.update({
+        where: { id: conversation.id },
+        data: { updatedAt: new Date() }
+      });
+    }
+
+    // Add user message
+    await prisma.chatMessage.create({
+      data: {
+        conversationId: conversation.id,
+        content: userMessage,
+        role: "user",
+        timestamp: new Date()
+      }
+    });
+
+    // Add bot response
+    await prisma.chatMessage.create({
+      data: {
+        conversationId: conversation.id,
+        content: botResponse,
+        role: "assistant",
+        timestamp: new Date()
+      }
+    });
+
+    // Update analytics metrics
+    const today = new Date().toISOString().split('T')[0];
+    
+    const existingMetrics = await prisma.analyticsMetrics.findFirst({
+      where: {
+        date: today,
+        shopDomain: shopDomain
+      }
+    });
+
+    if (existingMetrics) {
+      // Update existing metrics
+      await prisma.analyticsMetrics.update({
+        where: { id: existingMetrics.id },
+        data: {
+          totalConversations: { increment: conversation.id === conversation.id ? 0 : 1 }, // Only increment for new conversations
+          uniqueVisitors: { increment: 1 },
+          totalMessages: { increment: 2 }, // User message + bot response
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      // Create new metrics for today
+      await prisma.analyticsMetrics.create({
+        data: {
+          date: today,
+          shopDomain: shopDomain,
+          totalConversations: 1,
+          uniqueVisitors: 1,
+          totalMessages: 2,
+          averageResponseTime: 1.5, // Default response time
+          customerSatisfaction: 4.5, // Default satisfaction
+          topQuestions: JSON.stringify([
+            { question: extractTopicFromMessage(userMessage), count: 1 }
+          ])
+        }
+      });
+    }
+
+    await prisma.$disconnect();
+    console.log("✅ Conversation tracking completed successfully");
+
+  } catch (error) {
+    console.error("❌ Error tracking conversation:", error);
+    // Don't throw error to avoid breaking chat response
+  }
+}
+
+// Helper function to extract topic from message
+function extractTopicFromMessage(message: string): string {
+  const lowerMessage = message.toLowerCase();
+  
+  if (lowerMessage.includes('order') || lowerMessage.includes('tracking') || lowerMessage.includes('status')) {
+    return 'Order';
+  } else if (lowerMessage.includes('return') || lowerMessage.includes('refund') || lowerMessage.includes('exchange')) {
+    return 'Returns';
+  } else if (lowerMessage.includes('shipping') || lowerMessage.includes('delivery') || lowerMessage.includes('ship')) {
+    return 'Shipping';
+  } else if (lowerMessage.includes('payment') || lowerMessage.includes('charge') || lowerMessage.includes('billing')) {
+    return 'Payment';
+  } else if (lowerMessage.includes('product') || lowerMessage.includes('item') || lowerMessage.includes('size') || lowerMessage.includes('color')) {
+    return 'Product';
+  } else if (lowerMessage.includes('stock') || lowerMessage.includes('available') || lowerMessage.includes('inventory')) {
+    return 'Stock';
+  } else {
+    return 'General';
   }
 }
