@@ -83,41 +83,24 @@ export async function loader({ request }) {
       .filter(day => day.customerSatisfaction)
       .reduce((sum, day, _, arr) => sum + day.customerSatisfaction / arr.length, 0);
 
-    // Get top questions (this would need more sophisticated text analysis in production)
-    const allConversations = await prisma.chatConversation.findMany({
-      where: {
-        shopDomain,
-        startTime: {
-          gte: startDate
-        }
-      },
-      include: {
-        chatMessages: {
-          where: {
-            role: 'user'
-          },
-          take: 1,
-          orderBy: {
-            timestamp: 'asc'
+    // Get top questions from analytics metrics (aggregated from all daily metrics)
+    const allTopQuestions = [];
+    dailyMetrics.forEach(metric => {
+      if (metric.topQuestions && Array.isArray(metric.topQuestions)) {
+        metric.topQuestions.forEach(q => {
+          const existing = allTopQuestions.find(tq => tq.question === q.question);
+          if (existing) {
+            existing.count += q.count;
+          } else {
+            allTopQuestions.push({ question: q.question, count: q.count });
           }
-        }
+        });
       }
     });
 
-    // Simple topic analysis (in production, you'd use NLP)
-    const topicCounts = {};
-    allConversations.forEach(conv => {
-      const topic = conv.topic || 'General';
-      topicCounts[topic] = (topicCounts[topic] || 0) + 1;
-    });
-
-    const topQuestions = Object.entries(topicCounts)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 5)
-      .map(([topic, count]) => ({
-        question: getQuestionForTopic(topic),
-        count
-      }));
+    const topQuestions = allTopQuestions
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
     const analytics = {
       overview: {
