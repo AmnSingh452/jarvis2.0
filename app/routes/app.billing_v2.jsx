@@ -1,227 +1,139 @@
+import { 
+    Button, 
+    Layout, 
+    Page, 
+    Card, 
+    Text, 
+    Badge,
+    List,
+    Banner
+} from "@shopify/polaris";
+import { useAppBridge } from "@shopify/app-bridge-react";
+import { useLoaderData } from "@remix-run/react";
 import { json } from "@remix-run/node";
-import { useLoaderData, Form, useSubmit, useActionData } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
-import { Badge, Banner, Button, Card, Layout, Page, Text } from "@shopify/polaris";
-import { requestPlan, getPlanStatus, BILLING_PLANS } from "../utils/billing";
-import { useEffect } from "react";
 
-export const loader = async ({ request }) => {
+export async function loader({ request }) {
   const { admin, session } = await authenticate.admin(request);
   
-  try {
-    // Get current billing status
-    const billingStatus = await getPlanStatus(admin);
-    
-    return json({
-      shop: session.shop,
-      billingStatus,
-    });
-  } catch (error) {
-    console.error("Loader error:", error);
-    return json({
-      shop: session.shop,
-      billingStatus: null,
-      error: error.message,
-    });
-  }
-};
-
-export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-  const formData = await request.formData();
-  const selectedPlan = formData.get("plan");
+  // Get the shop domain from the session
+  const shopDomain = session.shop;
+  const storeHandle = shopDomain.replace('.myshopify.com', '');
   
-  try {
-    // Request the selected plan
-    const billingResponse = await requestPlan(admin, selectedPlan);
+  return json({
+    shopDomain,
+    storeHandle,
+    appHandle: 'jarvis2-0'
+  });
+}
+
+export default function Billing() {
+    const app = useAppBridge();
+    const { shopDomain, storeHandle, appHandle } = useLoaderData();
     
-    if (billingResponse?.confirmationUrl) {
-      // Return the confirmation URL for client-side redirect
-      return json({ 
-        success: true, 
-        confirmationUrl: billingResponse.confirmationUrl 
-      });
-    } else {
-      throw new Error("No confirmation URL received from Shopify");
-    }
-  } catch (error) {
-    console.error("Action error:", error);
-    return json({ 
-      success: false, 
-      error: error.message 
-    }, { status: 400 });
-  }
-};
+    const handleUpgrade = () => {
+        // Redirect to Shopify's Managed Pricing page for plan selection
+        const managedPricingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
+        console.log('Redirecting to pricing plans:', managedPricingUrl);
+        
+        // Open in new tab - works reliably across all environments
+        window.open(managedPricingUrl, '_blank');
+    };
 
-export default function BillingPage() {
-  const { shop, billingStatus, error } = useLoaderData();
-  const actionData = useActionData();
-  const submit = useSubmit();
+    const handleManageBilling = () => {
+        // Redirect to Shopify's billing management page
+        const billingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}`;
+        console.log('Redirecting to billing management:', billingUrl);
+        
+        // Open in new tab - works reliably across all environments
+        window.open(billingUrl, '_blank');
+    };
 
-  // Handle redirect to Shopify billing confirmation
-  useEffect(() => {
-    if (actionData?.success && actionData.confirmationUrl) {
-      console.log("Redirecting to Shopify billing:", actionData.confirmationUrl);
-      window.top.location.href = actionData.confirmationUrl;
-    }
-  }, [actionData]);
-
-  const handlePlanSelection = (planName) => {
-    console.log("Requesting plan:", planName);
-    const formData = new FormData();
-    formData.append("plan", planName);
-    submit(formData, { method: "POST" });
-  };
-
-  const handleContactSupport = () => {
-    const supportEmail = "support@jarvisai.app";
-    const subject = `Billing Support - ${shop}`;
-    const body = `Hello,\n\nI need assistance with billing for my store: ${shop}\n\nPlease describe your issue below:\n\n`;
-    
-    const mailtoUrl = `mailto:${supportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    
-    // Try to open in a new window/tab for better compatibility
-    window.open(mailtoUrl, '_blank');
-  };
-
-  const currentPlan = billingStatus?.plan;
-  const isSubscribed = billingStatus?.hasActivePayment;
-
-  return (
-    <Page title="Billing & Plans">
-      <Layout>
-        <Layout.Section>
-          {error && (
-            <Banner status="critical">
-              <p>Error loading billing information: {error}</p>
-            </Banner>
-          )}
-          
-          {actionData?.error && (
-            <Banner status="critical">
-              <p>Billing error: {actionData.error}</p>
-            </Banner>
-          )}
-          
-          <Banner status="info">
-            <p>Your app uses Shopify's secure billing system. All transactions are processed by Shopify and added to your monthly invoice.</p>
-          </Banner>
-        </Layout.Section>
-
-        <Layout.Section>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {/* Current Plan Status */}
-            {isSubscribed && currentPlan && (
-              <Card sectioned>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <Text variant="headingMd">Current Plan</Text>
-                  <Badge status="success">{currentPlan}</Badge>
-                  <Text variant="bodyMd" color="subdued">
-                    Your plan is active and billing is managed by Shopify.
-                  </Text>
-                </div>
-              </Card>
-            )}
-
-            {/* Essential Chat Plan */}
-            <Card sectioned>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Text variant="headingLg">Essential Chat</Text>
-                  <Badge>$14.99/month</Badge>
-                </div>
-                <Text variant="bodyMd">
-                  Perfect for small to medium businesses looking to enhance customer support with AI.
-                </Text>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <Text variant="bodyMd">✓ AI customer support chatbot</Text>
-                  <Text variant="bodyMd">✓ Smart product recommendations</Text>
-                  <Text variant="bodyMd">✓ Basic analytics dashboard</Text>
-                  <Text variant="bodyMd">✓ Up to 1,000 conversations/month</Text>
-                  <Text variant="bodyMd">✓ Standard support</Text>
-                </div>
-                {currentPlan !== BILLING_PLANS.ESSENTIAL && (
-                  <Button 
-                    primary 
-                    onClick={() => handlePlanSelection(BILLING_PLANS.ESSENTIAL)}
-                    loading={actionData?.loading}
-                  >
-                    Select Essential Chat
-                  </Button>
-                )}
-                {currentPlan === BILLING_PLANS.ESSENTIAL && (
-                  <Badge status="success">Current Plan</Badge>
-                )}
-              </div>
-            </Card>
-
-            {/* Sales Pro Plan */}
-            <Card sectioned>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Text variant="headingLg">Sales Pro</Text>
-                  <Badge>$39.99/month</Badge>
-                </div>
-                <Text variant="bodyMd">
-                  Advanced features for growing businesses that want to maximize conversions and customer lifetime value.
-                </Text>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <Text variant="bodyMd">✓ Everything in Essential Chat</Text>
-                  <Text variant="bodyMd">✓ Abandoned cart recovery automation</Text>
-                  <Text variant="bodyMd">✓ Advanced analytics & insights</Text>
-                  <Text variant="bodyMd">✓ Unlimited conversations</Text>
-                  <Text variant="bodyMd">✓ Priority support (12hr response)</Text>
-                  <Text variant="bodyMd">✓ Custom integration support</Text>
-                </div>
-                {currentPlan !== BILLING_PLANS.PRO && (
-                  <Button 
-                    primary 
-                    onClick={() => handlePlanSelection(BILLING_PLANS.PRO)}
-                    loading={actionData?.loading}
-                  >
-                    Select Sales Pro
-                  </Button>
-                )}
-                {currentPlan === BILLING_PLANS.PRO && (
-                  <Badge status="success">Current Plan</Badge>
-                )}
-              </div>
-            </Card>
-          </div>
-        </Layout.Section>
-
-        <Layout.Section>
-          <Card sectioned>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <Text variant="headingMd">Need Help?</Text>
-              <Text variant="bodyMd">
-                If you have questions about billing, need to change your plan, or require technical support, 
-                our team is here to help.
-              </Text>
-              <Button 
-                onClick={handleContactSupport}
-              >
-                Contact Billing Support
-              </Button>
-            </div>
-          </Card>
-        </Layout.Section>
-
-        {/* Debug Information */}
-        <Layout.Section>
-          <Card sectioned>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <Text variant="headingMd">Debug Information</Text>
-              <Text variant="bodyMd">Store: {shop}</Text>
-              <Text variant="bodyMd">Current Plan: {currentPlan || "None"}</Text>
-              <Text variant="bodyMd">Has Active Payment: {isSubscribed ? "Yes" : "No"}</Text>
-              <Text variant="bodyMd" color="subdued">
-                Using Shopify's official billing API with proper charge creation flow.
-              </Text>
-            </div>
-          </Card>
-        </Layout.Section>
-      </Layout>
-    </Page>
-  );
+    const handleContactSupport = () => {
+        // Contact support for billing questions
+        const supportUrl = `mailto:billing@jarvis2-ai.com?subject=Billing Support - ${shopDomain}`;
+        window.open(supportUrl, '_blank');
+    };
+    return (
+        <Page title="Billing & Plans">
+            <Layout>
+                <Layout.Section>
+                    <Banner 
+                        title="Shopify Managed Billing" 
+                        status="info"
+                        onDismiss={() => {}}
+                    >
+                        <p>Your billing is managed by Shopify. All charges appear on your monthly Shopify bill. Click "Manage Plans" to view or change your subscription through Shopify's billing system.</p>
+                    </Banner>
+                </Layout.Section>
+                
+                <Layout.Section oneHalf>
+                    <Card title="Essential Chat" sectioned>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <Text variant="headingMd" as="h3">$14.99/month</Text>
+                            <Badge status="info">Starter Plan</Badge>
+                            <Text variant="bodyMd" color="subdued">
+                                Perfect for small to medium stores
+                            </Text>
+                            <List type="bullet">
+                                <List.Item>AI customer support chatbot</List.Item>
+                                <List.Item>Smart product recommendations</List.Item>
+                                <List.Item>Basic analytics dashboard</List.Item>
+                                <List.Item>Up to 1,000 conversations/month</List.Item>
+                                <List.Item>Standard support</List.Item>
+                            </List>
+                            <Button onClick={handleUpgrade} primary>
+                                Select Essential Chat
+                            </Button>
+                        </div>
+                    </Card>
+                </Layout.Section>
+                
+                <Layout.Section oneHalf>
+                    <Card title="Sales Pro" sectioned>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <Text variant="headingMd" as="h3">$39.99/month</Text>
+                            <Badge status="success">Recommended</Badge>
+                            <Text variant="bodyMd" color="subdued">
+                                Advanced features for growing businesses
+                            </Text>
+                            <List type="bullet">
+                                <List.Item>Everything in Essential Chat</List.Item>
+                                <List.Item>Abandoned cart recovery automation</List.Item>
+                                <List.Item>Advanced analytics & insights</List.Item>
+                                <List.Item>Unlimited conversations</List.Item>
+                                <List.Item>Priority support (12hr response)</List.Item>
+                                <List.Item>Custom integration support</List.Item>
+                            </List>
+                            <Button onClick={handleUpgrade} primary>
+                                Select Sales Pro
+                            </Button>
+                        </div>
+                    </Card>
+                </Layout.Section>
+                
+                <Layout.Section>
+                    <Card sectioned>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <Text variant="headingMd" as="h3">Billing Management</Text>
+                            <Text variant="bodyMd">
+                                Your subscription is managed through Shopify's billing system. All charges appear on your monthly Shopify invoice.
+                            </Text>
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                <Button onClick={handleManageBilling}>
+                                    Manage Plans
+                                </Button>
+                                <Button onClick={handleContactSupport} outline>
+                                    Contact Billing Support
+                                </Button>
+                            </div>
+                            <Text variant="bodyMd" color="subdued">
+                                <strong>Store:</strong> {shopDomain} | <strong>App Handle:</strong> {appHandle}
+                            </Text>
+                        </div>
+                    </Card>
+                </Layout.Section>
+            </Layout>
+        </Page>
+    );
 }

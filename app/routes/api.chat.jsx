@@ -4,6 +4,140 @@ import { json } from "@remix-run/node";
 const chatCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Track analytics events
+async function trackAnalyticsEvents(payload, response) {
+  try {
+    const shopDomain = payload.shop_domain || 'unknown-shop.myshopify.com';
+    const sessionId = payload.session_id;
+    const message = payload.message;
+
+    // Track conversation start (if new session)
+    if (sessionId && !chatCache.has(`session_${sessionId}`)) {
+      await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "conversation_start",
+          shopDomain,
+          sessionId,
+          data: {}
+        })
+      });
+      
+      // Mark session as tracked
+      chatCache.set(`session_${sessionId}`, true);
+    }
+
+    // Track message
+    await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        eventType: "message",
+        shopDomain,
+        sessionId,
+        data: { messageLength: message?.length || 0 }
+      })
+    });
+
+    // Track question if message is a question
+    if (message) {
+      await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "question",
+          shopDomain,
+          sessionId,
+          data: { question: message }
+        })
+      });
+    }
+
+  } catch (error) {
+    console.warn("Analytics tracking error:", error.message);
+  }
+}
+
+// Save conversation to database
+async function saveConversationToDatabase(payload, response) {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    const shopDomain = payload.shop_domain || 'unknown-shop.myshopify.com';
+    const sessionId = payload.session_id;
+    const customerMessage = payload.message;
+    const botResponse = response.data?.response;
+
+    if (!sessionId || !customerMessage) return;
+
+    // Check if conversation exists
+    let conversation = await prisma.chatConversation.findUnique({
+      where: { sessionId }
+    });
+
+    // Create new conversation if it doesn't exist
+    if (!conversation) {
+      conversation = await prisma.chatConversation.create({
+        data: {
+          sessionId,
+          shopDomain,
+          customerName: "Anonymous", // We don't have customer name from widget
+          topic: inferTopicFromMessage(customerMessage),
+          startTime: new Date(),
+          converted: false,
+          conversionValue: 0
+        }
+      });
+    }
+
+    // Save the message exchange
+    await prisma.chatMessage.create({
+      data: {
+        conversationId: conversation.id,
+        sender: 'customer',
+        message: customerMessage,
+        timestamp: new Date()
+      }
+    });
+
+    if (botResponse) {
+      await prisma.chatMessage.create({
+        data: {
+          conversationId: conversation.id,
+          sender: 'bot', 
+          message: botResponse,
+          timestamp: new Date()
+        }
+      });
+    }
+
+    await prisma.$disconnect();
+  } catch (error) {
+    console.warn("Database saving error:", error.message);
+  }
+}
+
+// Simple function to infer topic from customer message
+function inferTopicFromMessage(message) {
+  const lowerMessage = message.toLowerCase();
+  
+  if (lowerMessage.includes('shipping') || lowerMessage.includes('delivery') || lowerMessage.includes('ship')) {
+    return 'Shipping';
+  } else if (lowerMessage.includes('return') || lowerMessage.includes('refund') || lowerMessage.includes('exchange')) {
+    return 'Returns';
+  } else if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('payment')) {
+    return 'Pricing';
+  } else if (lowerMessage.includes('size') || lowerMessage.includes('fit') || lowerMessage.includes('color')) {
+    return 'Product Info';
+  } else if (lowerMessage.includes('order') || lowerMessage.includes('track')) {
+    return 'Order Status';
+  } else {
+    return 'General';
+  }
+}
+
 // CORS headers for all responses
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,121 +152,6 @@ export async function options() {
     status: 200,
     headers: corsHeaders
   });
-}
-
-// Helper function to track conversation and messages
-async function trackConversation(payload, externalResponse) {
-  try {
-    const { PrismaClient } = await import("@prisma/client");
-    const prisma = new PrismaClient();
-
-    const shopDomain = payload.shop_domain || payload.shopDomain;
-    const sessionId = payload.session_id || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const userMessage = payload.message || payload.query || "";
-    const botResponse = externalResponse?.message || externalResponse?.response || "";
-
-    if (!shopDomain) {
-      console.log("⚠️ No shop domain provided, skipping conversation tracking");
-      return;
-    }
-
-    // Check if conversation exists for this session
-    let conversation = await prisma.chatConversation.findFirst({
-      where: { sessionId }
-    });
-
-    // Create conversation if it doesn't exist
-    if (!conversation) {
-      conversation = await prisma.chatConversation.create({
-        data: {
-          sessionId,
-          shopDomain,
-          customerIp: payload.customer_ip || "unknown",
-          customerName: payload.customer_name || null,
-          startTime: new Date(),
-          totalMessages: 0,
-          topic: payload.topic || 'General',
-          status: 'active'
-        }
-      });
-      console.log(`✅ Created new conversation ${conversation.id} for ${shopDomain}`);
-    }
-
-    // Track user message
-    if (userMessage.trim()) {
-      await prisma.chatMessage.create({
-        data: {
-          conversationId: conversation.id,
-          role: 'user',
-          content: userMessage,
-          timestamp: new Date(),
-          responseTime: null
-        }
-      });
-    }
-
-    // Track bot response with timing
-    if (botResponse.trim()) {
-      const responseTime = payload.response_time || 1.5; // Default response time
-      await prisma.chatMessage.create({
-        data: {
-          conversationId: conversation.id,
-          role: 'assistant',
-          content: botResponse,
-          timestamp: new Date(),
-          responseTime: parseFloat(responseTime)
-        }
-      });
-    }
-
-    // Update conversation message count
-    await prisma.chatConversation.update({
-      where: { id: conversation.id },
-      data: {
-        totalMessages: {
-          increment: userMessage.trim() ? (botResponse.trim() ? 2 : 1) : (botResponse.trim() ? 1 : 0)
-        },
-        updatedAt: new Date()
-      }
-    });
-
-    // Update or create daily analytics metrics
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    await prisma.analyticsMetrics.upsert({
-      where: {
-        shopDomain_date: {
-          shopDomain,
-          date: today
-        }
-      },
-      update: {
-        totalMessages: {
-          increment: userMessage.trim() ? (botResponse.trim() ? 2 : 1) : (botResponse.trim() ? 1 : 0)
-        },
-        updatedAt: new Date()
-      },
-      create: {
-        shopDomain,
-        date: today,
-        totalConversations: 0, // Will be updated separately
-        uniqueVisitors: 1,
-        totalMessages: userMessage.trim() ? (botResponse.trim() ? 2 : 1) : (botResponse.trim() ? 1 : 0),
-        averageResponseTime: parseFloat(responseTime || 1.5),
-        conversions: 0,
-        revenue: 0,
-        customerSatisfaction: null,
-        topQuestions: []
-      }
-    });
-
-    await prisma.$disconnect();
-    console.log(`✅ Tracked conversation and updated analytics for ${shopDomain}`);
-
-  } catch (error) {
-    console.error("❌ Error tracking conversation:", error);
-  }
 }
 
 // Handle POST requests for chat
@@ -235,12 +254,13 @@ export async function action({ request }) {
 
       console.log("🔄 Transformed response for widget:", transformedResponse);
 
-      // Track conversation and analytics in background (don't wait for it)
-      setImmediate(() => {
-        trackConversation(payload, externalData).catch(err => 
-          console.error("Background conversation tracking failed:", err)
-        );
-      });
+      // Track analytics events and save conversation in the background
+      Promise.all([
+        trackAnalyticsEvents(payload, transformedResponse),
+        saveConversationToDatabase(payload, transformedResponse)
+      ]).catch(err => 
+        console.warn("⚠️ Background tracking failed:", err.message)
+      );
 
       // Return transformed response with same status as external API
       return new Response(JSON.stringify(transformedResponse), {

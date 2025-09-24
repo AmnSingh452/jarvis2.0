@@ -83,7 +83,7 @@ export async function loader({ request }) {
       .filter(day => day.customerSatisfaction)
       .reduce((sum, day, _, arr) => sum + day.customerSatisfaction / arr.length, 0);
 
-    // Get top questions from actual conversation topics and messages
+    // Get top questions (this would need more sophisticated text analysis in production)
     const allConversations = await prisma.chatConversation.findMany({
       where: {
         shopDomain,
@@ -104,50 +104,20 @@ export async function loader({ request }) {
       }
     });
 
-    // Analyze conversation topics and first user messages
+    // Simple topic analysis (in production, you'd use NLP)
     const topicCounts = {};
-    const questionCounts = {};
-    
     allConversations.forEach(conv => {
-      // Count topics
       const topic = conv.topic || 'General';
       topicCounts[topic] = (topicCounts[topic] || 0) + 1;
-      
-      // Count first user messages as questions
-      if (conv.chatMessages.length > 0) {
-        const firstMessage = conv.chatMessages[0].content;
-        // Simple question extraction (in production, use NLP)
-        const question = firstMessage.length > 50 
-          ? firstMessage.substring(0, 47) + "..." 
-          : firstMessage;
-        questionCounts[question] = (questionCounts[question] || 0) + 1;
-      }
     });
 
-    // Get top questions from both topics and actual messages
-    const topTopics = Object.entries(topicCounts)
+    const topQuestions = Object.entries(topicCounts)
       .sort(([,a], [,b]) => b - a)
-      .slice(0, 3)
+      .slice(0, 5)
       .map(([topic, count]) => ({
         question: getQuestionForTopic(topic),
         count
       }));
-
-    const topMessages = Object.entries(questionCounts)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 2)
-      .map(([question, count]) => ({
-        question,
-        count
-      }));
-
-    // Combine and sort all questions
-    const allQuestions = [...topTopics, ...topMessages]
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    // Only show real questions if they exist, no fallback fake data
-    const topQuestions = allQuestions.length > 0 ? allQuestions : [];
 
     const analytics = {
       overview: {
