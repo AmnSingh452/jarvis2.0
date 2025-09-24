@@ -219,6 +219,28 @@ export async function action({ request }: ActionFunctionArgs) {
       console.log("ℹ️ Authentication failed - likely a direct test request:", authError instanceof Error ? authError.message : String(authError));
       // Continue with test mode
     }
+
+    // If no authenticated shop, try to extract from request payload
+    if (shop === "test-shop") {
+      try {
+        const requestText = await request.text();
+        if (requestText) {
+          const payload = JSON.parse(requestText);
+          if (payload.shop_domain) {
+            shop = payload.shop_domain;
+            console.log("📦 Extracted shop from payload:", shop);
+          }
+        }
+        // Reset request stream for handlers
+        request = new Request(request.url, {
+          method: request.method,
+          headers: request.headers,
+          body: requestText
+        });
+      } catch (e) {
+        console.log("⚠️ Could not extract shop from payload");
+      }
+    }
     
     const url = new URL(request.url);
     const pathname = url.pathname;
@@ -464,10 +486,14 @@ async function handleChat(request: Request, session: any | null, shop: string) {
 
     console.log("🔄 Transformed response for widget:", transformedResponse);
 
+    // Extract shop domain from payload if available (widget sends this)
+    const finalShopDomain = payload.shop_domain || shop;
+    console.log("🏪 Using shop domain for analytics:", finalShopDomain);
+
     // Track analytics events and save conversation in the background (like the direct API)
     Promise.all([
-      trackAnalyticsEvents(payload, transformedResponse, shop),
-      saveConversationToDatabase(payload, transformedResponse, shop)
+      trackAnalyticsEvents(payload, transformedResponse, finalShopDomain),
+      saveConversationToDatabase(payload, transformedResponse, finalShopDomain)
     ]).catch(err => 
       console.warn("⚠️ Background tracking failed (proxy):", err.message)
     );
