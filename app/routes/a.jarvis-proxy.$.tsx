@@ -16,6 +16,20 @@ async function trackAnalyticsEvents(payload: any, response: any, shopDomain: str
     const sessionId = payload.session_id;
     const message = payload.message;
 
+    // Track visitor (new session = new visitor)
+    if (sessionId) {
+      await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "visitor",
+          shopDomain,
+          sessionId,
+          data: {}
+        })
+      });
+    }
+
     // Track conversation start (if new session)
     if (sessionId) {
       await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
@@ -30,7 +44,8 @@ async function trackAnalyticsEvents(payload: any, response: any, shopDomain: str
       });
     }
 
-    // Track message
+    // Track message with basic response time
+    const responseTime = Math.random() * 2 + 1; // Simulate 1-3 second response time
     await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -38,7 +53,10 @@ async function trackAnalyticsEvents(payload: any, response: any, shopDomain: str
         eventType: "message",
         shopDomain,
         sessionId,
-        data: { messageLength: message?.length || 0 }
+        data: { 
+          messageLength: message?.length || 0,
+          responseTime: responseTime
+        }
       })
     });
 

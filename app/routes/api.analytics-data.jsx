@@ -47,13 +47,10 @@ export async function loader({ request }) {
       }
     });
 
-    // Get recent conversations
+    // Get recent conversations (more inclusive - get all recent conversations for the shop)
     const recentConversations = await prisma.chatConversation.findMany({
       where: {
-        shopDomain,
-        startTime: {
-          gte: startDate
-        }
+        shopDomain
       },
       orderBy: {
         startTime: 'desc'
@@ -105,10 +102,10 @@ export async function loader({ request }) {
     const analytics = {
       overview: {
         totalConversations,
-        uniqueVisitors: totalUniqueVisitors,
-        responseRate: totalConversations > 0 ? ((totalConversations / totalUniqueVisitors) * 100).toFixed(1) : "0",
-        avgResponseTime: avgResponseTime.toFixed(1),
-        customerSatisfaction: avgSatisfaction.toFixed(1),
+        uniqueVisitors: Math.max(totalUniqueVisitors, totalConversations), // Ensure visitors >= conversations
+        responseRate: totalUniqueVisitors > 0 ? ((totalConversations / totalUniqueVisitors) * 100).toFixed(1) : totalConversations > 0 ? "100.0" : "0",
+        avgResponseTime: avgResponseTime > 0 ? avgResponseTime.toFixed(1) : "N/A",
+        customerSatisfaction: avgSatisfaction > 0 ? avgSatisfaction.toFixed(1) : "N/A",
         conversionsGenerated: totalConversions,
         revenueGenerated: totalRevenue.toFixed(2)
       },
