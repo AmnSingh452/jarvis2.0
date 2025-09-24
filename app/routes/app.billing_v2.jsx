@@ -40,14 +40,7 @@ export default function Billing() {
         window.open(managedPricingUrl, '_blank');
     };
 
-    const handleManageBilling = () => {
-        // Redirect to Shopify's billing management page
-        const billingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}`;
-        console.log('Redirecting to billing management:', billingUrl);
-        
-        // Open in new tab - works reliably across all environments
-        window.open(billingUrl, '_blank');
-    };
+
 
     const handleContactSupport = () => {
         // Contact support for billing questions
@@ -63,7 +56,7 @@ export default function Billing() {
                         status="info"
                         onDismiss={() => {}}
                     >
-                        <p>Your billing is managed by Shopify. All charges appear on your monthly Shopify bill. Click "Manage Plans" to view or change your subscription through Shopify's billing system.</p>
+                        <p>Your billing is managed by Shopify. All charges appear on your monthly Shopify bill. For plan changes or billing support, please contact our support team below.</p>
                     </Banner>
                 </Layout.Section>
                 
@@ -117,12 +110,9 @@ export default function Billing() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <Text variant="headingMd" as="h3">Billing Management</Text>
                             <Text variant="bodyMd">
-                                Your subscription is managed through Shopify's billing system. All charges appear on your monthly Shopify invoice.
+                                Your subscription is managed through Shopify's billing system. All charges appear on your monthly Shopify invoice. For plan changes or billing questions, please contact our support team.
                             </Text>
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                <Button onClick={handleManageBilling}>
-                                    Manage Plans
-                                </Button>
                                 <Button onClick={handleContactSupport} outline>
                                     Contact Billing Support
                                 </Button>
