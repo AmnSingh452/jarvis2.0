@@ -10,6 +10,135 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400"
 };
 
+// Track analytics events (same logic as direct API)
+async function trackAnalyticsEvents(payload: any, response: any, shopDomain: string) {
+  try {
+    const sessionId = payload.session_id;
+    const message = payload.message;
+
+    // Track conversation start (if new session)
+    if (sessionId) {
+      await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "conversation_start",
+          shopDomain,
+          sessionId,
+          data: {}
+        })
+      });
+    }
+
+    // Track message
+    await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        eventType: "message",
+        shopDomain,
+        sessionId,
+        data: { messageLength: message?.length || 0 }
+      })
+    });
+
+    // Track question if message is a question
+    if (message) {
+      await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "question",
+          shopDomain,
+          sessionId,
+          data: { question: message }
+        })
+      });
+    }
+
+  } catch (error) {
+    console.warn("Analytics tracking error (proxy):", error instanceof Error ? error.message : String(error));
+  }
+}
+
+// Save conversation to database (same logic as direct API)
+async function saveConversationToDatabase(payload: any, response: any, shopDomain: string) {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    const sessionId = payload.session_id;
+    const customerMessage = payload.message;
+    const botResponse = response.data?.response;
+
+    if (!sessionId || !customerMessage) return;
+
+    // Check if conversation exists
+    let conversation = await prisma.chatConversation.findFirst({
+      where: { sessionId }
+    });
+
+    // Create new conversation if it doesn't exist
+    if (!conversation) {
+      conversation = await prisma.chatConversation.create({
+        data: {
+          sessionId,
+          shopDomain,
+          customerName: "Anonymous", // We don't have customer name from widget
+          topic: inferTopicFromMessage(customerMessage),
+          startTime: new Date(),
+          converted: false,
+          conversionValue: 0
+        }
+      });
+    }
+
+    // Save the message exchange
+    await prisma.chatMessage.create({
+      data: {
+        conversationId: conversation.id,
+        role: 'user',
+        content: customerMessage,
+        timestamp: new Date()
+      }
+    });
+
+    if (botResponse) {
+      await prisma.chatMessage.create({
+        data: {
+          conversationId: conversation.id,
+          role: 'assistant', 
+          content: botResponse,
+          timestamp: new Date()
+        }
+      });
+    }
+
+    await prisma.$disconnect();
+  } catch (error) {
+    console.warn("Database saving error (proxy):", error instanceof Error ? error.message : String(error));
+  }
+}
+
+// Simple function to infer topic from customer message
+function inferTopicFromMessage(message: string) {
+  const lowerMessage = message.toLowerCase();
+  
+  if (lowerMessage.includes('shipping') || lowerMessage.includes('delivery') || lowerMessage.includes('ship')) {
+    return 'Shipping';
+  } else if (lowerMessage.includes('return') || lowerMessage.includes('refund') || lowerMessage.includes('exchange')) {
+    return 'Returns';
+  } else if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('payment')) {
+    return 'Pricing';
+  } else if (lowerMessage.includes('size') || lowerMessage.includes('fit') || lowerMessage.includes('color')) {
+    return 'Product Info';
+  } else if (lowerMessage.includes('order') || lowerMessage.includes('track')) {
+    return 'Order Status';
+  } else {
+    return 'General';
+  }
+}
+
 // Handle OPTIONS preflight requests
 export async function options() {
   return new Response(null, {
@@ -334,6 +463,14 @@ async function handleChat(request: Request, session: any | null, shop: string) {
     };
 
     console.log("🔄 Transformed response for widget:", transformedResponse);
+
+    // Track analytics events and save conversation in the background (like the direct API)
+    Promise.all([
+      trackAnalyticsEvents(payload, transformedResponse, shop),
+      saveConversationToDatabase(payload, transformedResponse, shop)
+    ]).catch(err => 
+      console.warn("⚠️ Background tracking failed (proxy):", err.message)
+    );
 
     return json(transformedResponse, {
       status: 200,
