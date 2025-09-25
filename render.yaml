@@ -2,7 +2,7 @@ services:
   - type: web
     name: jarvis2-0
     runtime: node
-    buildCommand: bash render-build.sh
+    buildCommand: npm install && npx prisma generate && npx prisma db push --skip-generate && npm run build
     startCommand: npm start
     healthCheckPath: /health
     envVars:
