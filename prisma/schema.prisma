@@ -185,17 +185,19 @@ model AnalyticsMetrics {
 
 model CartAbandonmentLog {
   id                 String    @id @default(cuid())
-  sessionId          String
+  sessionId          String?
   shopDomain         String
   customerId         String?
-  discountCode       String
+  discountCode       String?
   discountPercentage Int
   cartTotal          Float?
+  success            Boolean   @default(false)
+  errorMessage       String?
   used               Boolean   @default(false)
   usedAt             DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  @@index([sessionId, shopDomain])
+  @@index([customerId, shopDomain, createdAt])
   @@index([shopDomain, createdAt])
 }
