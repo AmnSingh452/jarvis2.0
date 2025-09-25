@@ -53,6 +53,8 @@ export async function loader({ request }) {
       });
     }
     
+    console.log("📤 Loading settings for", session.shop, ":", settings);
+    
     return json({ settings, shopDomain: session.shop });
   } catch (error) {
     console.error("Error loading widget settings:", error);
@@ -69,6 +71,12 @@ export async function loader({ request }) {
 export async function action({ request }) {
   const { session } = await authenticate.admin(request);
   const formData = await request.formData();
+  
+  // Debug: Log all form data
+  console.log("🔍 Form Data Received:");
+  for (const [key, value] of formData.entries()) {
+    console.log(`  ${key}: ${value}`);
+  }
   
   const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient();
@@ -93,15 +101,19 @@ export async function action({ request }) {
       // Cart Abandonment Settings
       cartAbandonmentEnabled: formData.get("cartAbandonmentEnabled") === "on",
       cartAbandonmentDiscount: parseInt(formData.get("cartAbandonmentDiscount")) || 10,
-      cartAbandonmentMessage: formData.get("cartAbandonmentMessage") || "Don't miss out! Complete your purchase and save {discount}% with code {code}",
+      cartAbandonmentMessage: formData.get("cartAbandonmentMessage") || "Don't miss out! Use code {discount_code} for {discount_percentage}% off your order!",
       cartAbandonmentDelay: parseInt(formData.get("cartAbandonmentDelay")) || 300,
     };
     
-    await prisma.widgetSettings.upsert({
+    console.log("💾 Settings Data to Save:", settingsData);
+    
+    const result = await prisma.widgetSettings.upsert({
       where: { shopDomain: session.shop },
       update: settingsData,
       create: { shopDomain: session.shop, ...settingsData }
     });
+    
+    console.log("✅ Settings Saved Successfully:", result);
     
     return json({ success: true, message: "Settings saved successfully!" });
   } catch (error) {
@@ -139,7 +151,7 @@ export default function WidgetSettings() {
     // Cart Abandonment Settings
     cartAbandonmentEnabled: settings?.cartAbandonmentEnabled ?? false,
     cartAbandonmentDiscount: settings?.cartAbandonmentDiscount || 10,
-    cartAbandonmentMessage: settings?.cartAbandonmentMessage || "Don't miss out! Complete your purchase and save {discount}% with code {code}",
+    cartAbandonmentMessage: settings?.cartAbandonmentMessage || "Don't miss out! Use code {discount_code} for {discount_percentage}% off your order!",
     cartAbandonmentDelay: settings?.cartAbandonmentDelay || 300,
   });
   
@@ -155,7 +167,15 @@ export default function WidgetSettings() {
   const handleSave = () => {
     const form = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
-      form.append(key, value.toString());
+      // Handle boolean values properly for form submission
+      if (typeof value === 'boolean') {
+        if (value) {
+          form.append(key, 'on'); // HTML form checkbox value when checked
+        }
+        // Don't append anything if false (checkbox unchecked)
+      } else {
+        form.append(key, value.toString());
+      }
     });
     submit(form, { method: "post" });
     setUnsavedChanges(false);
@@ -544,8 +564,8 @@ export default function WidgetSettings() {
                         value={formData.cartAbandonmentMessage}
                         onChange={handleFieldChange("cartAbandonmentMessage")}
                         multiline={3}
-                        helpText="Message to show when offering the discount. Use {discount} for discount percentage and {code} for the discount code."
-                        placeholder="Don't miss out! Complete your purchase and save {discount}% with code {code}"
+                        helpText="Message to show when offering the discount. Use {discount_percentage} for discount percentage and {discount_code} for the discount code."
+                        placeholder="Don't miss out! Use code {discount_code} for {discount_percentage}% off your order!"
                       />
                       
                       <Banner status="info">
