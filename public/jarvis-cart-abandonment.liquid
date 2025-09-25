@@ -1,0 +1,201 @@
+{% comment %}
+  Jarvis Cart Abandonment Recovery Integration
+  
+  This snippet should be included in your theme to enable cart abandonment recovery.
+  Add this to your theme.liquid file before the closing </body> tag.
+  
+  Usage: {% render 'jarvis-cart-abandonment' %}
+{% endcomment %}
+
+<script>
+  window.jarvisShopDomain = '{{ shop.permanent_domain }}';
+  window.jarvisDebugMode = {{ settings.jarvis_debug_mode | default: false }};
+  window.jarvisCartAbandonmentDelay = {{ settings.jarvis_abandonment_delay | default: 300 }};
+</script>
+
+<script src="{{ 'cart-abandonment-detector.js' | asset_url }}" defer></script>
+
+{% comment %}
+  Integration with existing chatbot widget
+  This assumes you have a chatbot widget with the class 'jarvis-chatbot-widget'
+{% endcomment %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Listen for discount offer events
+  const chatWidget = document.querySelector('[data-jarvis-chatbot], .jarvis-chatbot-widget');
+  
+  if (chatWidget) {
+    chatWidget.addEventListener('jarvis-show-discount', function(event) {
+      const { discountCode, discountPercentage, message } = event.detail;
+      
+      // Show the discount in the chatbot
+      showChatbotMessage({
+        type: 'discount-offer',
+        message: message,
+        discountCode: discountCode,
+        discountPercentage: discountPercentage,
+        isBot: true
+      });
+      
+      // Open chatbot if it's closed
+      if (!chatWidget.classList.contains('open')) {
+        chatWidget.classList.add('open');
+      }
+    });
+  }
+  
+  // Function to display discount message in chatbot
+  function showChatbotMessage(data) {
+    const messagesContainer = chatWidget.querySelector('.chat-messages, .messages');
+    if (!messagesContainer) return;
+    
+    const messageEl = document.createElement('div');
+    messageEl.className = 'chat-message bot-message discount-offer';
+    messageEl.innerHTML = `
+      <div class="message-content">
+        <div class="discount-offer-card">
+          <div class="discount-header">
+            <span class="discount-icon">🎉</span>
+            <span class="discount-title">Special Offer for You!</span>
+          </div>
+          <div class="discount-message">${data.message}</div>
+          <div class="discount-code-section">
+            <label>Your discount code:</label>
+            <div class="discount-code" onclick="copyDiscountCode('${data.discountCode}')">
+              <span class="code">${data.discountCode}</span>
+              <span class="copy-icon">📋</span>
+            </div>
+          </div>
+          <div class="discount-actions">
+            <button class="apply-discount-btn" onclick="applyDiscountCode('${data.discountCode}')">
+              Apply ${data.discountPercentage}% Discount
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    messagesContainer.appendChild(messageEl);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+  
+  // Function to copy discount code to clipboard
+  window.copyDiscountCode = function(code) {
+    navigator.clipboard.writeText(code).then(function() {
+      // Show copied feedback
+      const event = new CustomEvent('jarvis-show-notification', {
+        detail: { message: 'Discount code copied!', type: 'success' }
+      });
+      document.dispatchEvent(event);
+    });
+  };
+  
+  // Function to apply discount code to cart
+  window.applyDiscountCode = function(code) {
+    // Redirect to checkout with discount code
+    window.location.href = `/checkout?discount=${code}`;
+  };
+});
+</script>
+
+<style>
+.discount-offer-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 8px 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.discount-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.discount-icon {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+.discount-title {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.discount-message {
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.discount-code-section {
+  margin-bottom: 12px;
+}
+
+.discount-code-section label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 4px;
+  opacity: 0.9;
+}
+
+.discount-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.discount-code:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.discount-code .code {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.discount-code .copy-icon {
+  opacity: 0.7;
+}
+
+.apply-discount-btn {
+  width: 100%;
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.apply-discount-btn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: translateY(-1px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .discount-offer-card {
+    padding: 12px;
+  }
+  
+  .discount-title {
+    font-size: 14px;
+  }
+  
+  .discount-message {
+    font-size: 13px;
+  }
+}
+</style>

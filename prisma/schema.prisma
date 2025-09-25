@@ -68,6 +68,11 @@ model WidgetSettings {
   autoOpen            Boolean  @default(false)
   customCSS           String?
   isEnabled           Boolean  @default(true)
+  // Cart Abandonment Settings
+  cartAbandonmentEnabled    Boolean @default(false)
+  cartAbandonmentDiscount   Int     @default(10)  // Discount percentage
+  cartAbandonmentMessage    String  @default("Don't miss out! Complete your purchase and save {discount}% with code {code}")
+  cartAbandonmentDelay      Int     @default(300) // Delay in seconds (default 5 minutes)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -178,4 +183,21 @@ model AnalyticsMetrics {
 
   @@unique([shopDomain, date])
   @@index([shopDomain, date])
+}
+
+model CartAbandonmentLog {
+  id                 String   @id @default(cuid())
+  sessionId          String
+  shopDomain         String
+  customerId         String?
+  discountCode       String
+  discountPercentage Int
+  cartTotal          Float?
+  used               Boolean  @default(false)
+  usedAt             DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([sessionId, shopDomain])
+  @@index([shopDomain, createdAt])
 }

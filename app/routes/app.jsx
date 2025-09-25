@@ -43,6 +43,9 @@ export default function App() {
         <Link to="/app/widget-settings">
           Widget Settings
         </Link>
+        <Link to="/app/cart-abandonment-test">
+          Cart Recovery Test
+        </Link>
         <Link to="/app/billing_v2">
           Billing & Plans
         </Link>

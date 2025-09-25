@@ -90,6 +90,11 @@ export async function action({ request }) {
       autoOpen: formData.get("autoOpen") === "on",
       customCSS: formData.get("customCSS") || "",
       isEnabled: formData.get("isEnabled") === "on",
+      // Cart Abandonment Settings
+      cartAbandonmentEnabled: formData.get("cartAbandonmentEnabled") === "on",
+      cartAbandonmentDiscount: parseInt(formData.get("cartAbandonmentDiscount")) || 10,
+      cartAbandonmentMessage: formData.get("cartAbandonmentMessage") || "Don't miss out! Complete your purchase and save {discount}% with code {code}",
+      cartAbandonmentDelay: parseInt(formData.get("cartAbandonmentDelay")) || 300,
     };
     
     await prisma.widgetSettings.upsert({
@@ -131,6 +136,11 @@ export default function WidgetSettings() {
     autoOpen: settings?.autoOpen ?? false,
     customCSS: settings?.customCSS || "",
     isEnabled: settings?.isEnabled ?? true,
+    // Cart Abandonment Settings
+    cartAbandonmentEnabled: settings?.cartAbandonmentEnabled ?? false,
+    cartAbandonmentDiscount: settings?.cartAbandonmentDiscount || 10,
+    cartAbandonmentMessage: settings?.cartAbandonmentMessage || "Don't miss out! Complete your purchase and save {discount}% with code {code}",
+    cartAbandonmentDelay: settings?.cartAbandonmentDelay || 300,
   });
   
   // Color picker states (simplified)
@@ -490,6 +500,74 @@ export default function WidgetSettings() {
                 </BlockStack>
               </Card>
               
+              {/* Cart Abandonment Recovery */}
+              <Card>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h2">🛒 Cart Abandonment Recovery</Text>
+                  <Text variant="bodyMd" color="subdued">
+                    Automatically offer discount codes to customers who abandon their carts to encourage completion.
+                  </Text>
+                  
+                  <Checkbox
+                    label="Enable Cart Abandonment Recovery"
+                    checked={formData.cartAbandonmentEnabled}
+                    onChange={handleFieldChange("cartAbandonmentEnabled")}
+                    helpText="When enabled, the chatbot will offer discount codes to customers who abandon their carts"
+                  />
+                  
+                  {formData.cartAbandonmentEnabled && (
+                    <BlockStack gap="400">
+                      <TextField
+                        type="number"
+                        label="Discount Percentage"
+                        value={formData.cartAbandonmentDiscount?.toString()}
+                        onChange={handleFieldChange("cartAbandonmentDiscount")}
+                        suffix="%"
+                        min="5"
+                        max="50"
+                        helpText="Percentage discount to offer (5% - 50%)"
+                      />
+                      
+                      <TextField
+                        type="number"
+                        label="Trigger Delay (seconds)"
+                        value={formData.cartAbandonmentDelay?.toString()}
+                        onChange={handleFieldChange("cartAbandonmentDelay")}
+                        suffix="seconds"
+                        min="60"
+                        max="1800"
+                        helpText="How long to wait before offering the discount (1 minute - 30 minutes)"
+                      />
+                      
+                      <TextField
+                        label="Abandonment Message"
+                        value={formData.cartAbandonmentMessage}
+                        onChange={handleFieldChange("cartAbandonmentMessage")}
+                        multiline={3}
+                        helpText="Message to show when offering the discount. Use {discount} for discount percentage and {code} for the discount code."
+                        placeholder="Don't miss out! Complete your purchase and save {discount}% with code {code}"
+                      />
+                      
+                      <Banner status="info">
+                        <Text variant="bodyMd">
+                          <strong>How it works:</strong>
+                          <br />• Customer adds items to cart and starts chatting
+                          <br />• After the delay period, if they haven't completed purchase, chatbot offers discount
+                          <br />• Each customer can receive one discount code per hour
+                          <br />• Discount codes are valid for single use and expire after 24 hours
+                        </Text>
+                      </Banner>
+                      
+                      <Banner status="warning">
+                        <Text variant="bodyMd">
+                          <strong>Testing:</strong> To test this feature, add items to your cart, start a chat conversation, then wait for the configured delay time. The chatbot will automatically offer a discount code.
+                        </Text>
+                      </Banner>
+                    </BlockStack>
+                  )}
+                </BlockStack>
+              </Card>
+
               {/* Advanced Settings */}
               <Card>
                 <BlockStack gap="400">
