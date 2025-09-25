@@ -12,6 +12,8 @@
     "start": "node server.js",
     "docker-start": "npm run setup && npm run start",
     "setup": "prisma generate && prisma migrate deploy",
+    "render-build": "node scripts/deploy.js",
+    "render-build-fallback": "node scripts/deploy-fallback.js",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
     "shopify": "shopify",
     "prisma": "prisma",
