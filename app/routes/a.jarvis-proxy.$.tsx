@@ -643,6 +643,78 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
     
     console.log("📦 Request body:", body);
 
+    // Parse request data for rate limiting
+    let requestData;
+    try {
+      requestData = JSON.parse(body);
+    } catch (e) {
+      console.error("❌ Invalid JSON in cart abandonment request");
+      return json({ 
+        success: false, 
+        error: "Invalid request format" 
+      }, { 
+        status: 400,
+        headers: corsHeaders 
+      });
+    }
+
+    const { shop_domain, session_id, customer_id } = requestData;
+
+    // Rate limiting: Check if this customer/session already got a discount recently
+    try {
+      const { PrismaClient } = await import("@prisma/client");
+      const prisma = new PrismaClient();
+
+      // Check for existing discount within 24 hours
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      
+      const recentDiscount = await prisma.cartAbandonmentLog.findFirst({
+        where: {
+          shopDomain: shop_domain || shop,
+          OR: [
+            { sessionId: session_id },
+            ...(customer_id ? [{ customerId: customer_id }] : [])
+          ],
+          success: true,
+          createdAt: {
+            gte: twentyFourHoursAgo
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      if (recentDiscount) {
+        console.log("🚫 Rate limited - discount already provided:", {
+          existingCode: recentDiscount.discountCode,
+          createdAt: recentDiscount.createdAt,
+          sessionId: recentDiscount.sessionId
+        });
+
+        await prisma.$disconnect();
+
+        return json({
+          success: false,
+          error: "Rate limited",
+          message: "Discount already provided recently",
+          details: {
+            existingCode: recentDiscount.discountCode,
+            providedAt: recentDiscount.createdAt,
+            waitUntil: new Date(recentDiscount.createdAt.getTime() + 24 * 60 * 60 * 1000)
+          }
+        }, {
+          status: 429, // Too Many Requests
+          headers: corsHeaders
+        });
+      }
+
+      await prisma.$disconnect();
+    } catch (dbError) {
+      console.warn("⚠️ Database rate limiting check failed:", dbError);
+      // Continue without rate limiting if DB fails
+    }
+
     // Forward the request to the external CartRecover_Bot API
     const response = await fetch("https://cartrecover-bot.onrender.com/api/abandoned-cart-discount", {
       method: "POST",
@@ -657,6 +729,34 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
     
     console.log("📥 External API response status:", response.status);
     console.log("📥 External API response:", responseData);
+
+    // If successful, log to database for rate limiting
+    if (response.ok) {
+      try {
+        const responseJson = JSON.parse(responseData);
+        if (responseJson.discountCode || responseJson.discount_code) {
+          const { PrismaClient } = await import("@prisma/client");
+          const prisma = new PrismaClient();
+
+          await prisma.cartAbandonmentLog.create({
+            data: {
+              shopDomain: shop_domain || shop,
+              sessionId: session_id || `session_${Date.now()}`,
+              customerId: customer_id || `anon_${Date.now()}`,
+              discountCode: responseJson.discountCode || responseJson.discount_code,
+              discountPercentage: parseInt(responseJson.discount || responseJson.discount_percentage || '10'),
+              success: true,
+              used: false
+            }
+          });
+
+          await prisma.$disconnect();
+          console.log("✅ Discount logged for rate limiting");
+        }
+      } catch (logError) {
+        console.warn("⚠️ Failed to log discount for rate limiting:", logError);
+      }
+    }
 
     // Return the response with CORS headers
     return new Response(responseData, {
