@@ -634,16 +634,51 @@ async function handleWidgetSettings(request: Request, session: any | null, shop:
 }
 
 async function handleAbandonedCartDiscount(request: Request, session: any | null, shop: string) {
-  // Handle abandoned cart discount logic
-  return json({
-    success: true,
-    shop: shop,
-    discount_code: "JARVIS10OFF",
-    message: "Discount created successfully",
-    timestamp: new Date().toISOString()
-  }, {
-    headers: corsHeaders
-  });
+  try {
+    console.log("🛒 Cart abandonment API called via proxy for shop:", shop);
+    
+    // Parse the incoming request
+    const body = await request.text();
+    const contentType = request.headers.get("content-type");
+    
+    console.log("📦 Request body:", body);
+
+    // Forward the request to the external CartRecover_Bot API
+    const response = await fetch("https://cartrecover-bot.onrender.com/api/abandoned-cart-discount", {
+      method: "POST",
+      headers: {
+        "Content-Type": contentType || "application/json",
+        "User-Agent": "Shopify-Chatbot-Proxy/1.0"
+      },
+      body: body
+    });
+
+    const responseData = await response.text();
+    
+    console.log("📥 External API response status:", response.status);
+    console.log("📥 External API response:", responseData);
+
+    // Return the response with CORS headers
+    return new Response(responseData, {
+      status: response.status,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": response.headers.get("Content-Type") || "application/json"
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Cart abandonment proxy error:", error);
+    
+    return json({ 
+      success: false, 
+      error: "Service unavailable",
+      details: "Unable to process cart abandonment request"
+    }, { 
+      status: 500,
+      headers: corsHeaders 
+    });
+  }
 }
 
 async function handleRecommendations(request: Request, session: any | null, shop: string) {
