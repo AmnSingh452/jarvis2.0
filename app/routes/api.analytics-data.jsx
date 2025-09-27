@@ -1,20 +1,22 @@
 import { json } from "@remix-run/node";
 
-export async function loader({ request }) {
-  // Add CORS headers for cross-origin requests
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Accept",
-  };
+// CORS headers for all responses
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+  "Access-Control-Max-Age": "86400"
+};
 
-  // Handle preflight OPTIONS request
-  if (request.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
-  }
+// Handle OPTIONS preflight requests
+export async function options() {
+  return new Response(null, {
+    status: 200,
+    headers: corsHeaders
+  });
+}
+
+export async function loader({ request }) {
 
   try {
     const url = new URL(request.url);
