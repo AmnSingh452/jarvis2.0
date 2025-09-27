@@ -44,6 +44,12 @@ api_version = "2025-07"
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_customers,read_discounts,read_fulfillments,read_orders,read_product_listings,read_products,write_discounts,write_payment_terms,write_products"
 
+[app_proxy]
+# App proxy configuration for widget integration
+url = "https://jarvis2-0-djg1.onrender.com/"
+subpath = "jarvis"
+prefix = "a"
+
 [auth]
 redirect_urls = [
   "https://jarvis2-0-djg1.onrender.com/auth/callback",
