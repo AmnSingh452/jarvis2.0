@@ -274,6 +274,10 @@ export async function action({ request }: ActionFunctionArgs) {
       return handleRecommendations(request, proxyContext?.session || null, shop);
     } else if (pathname.includes('/customer/update')) {
       return handleCustomerUpdate(request, proxyContext?.session || null, shop);
+    } else if (pathname.includes('/feedback-session')) {
+      return handleFeedbackSession(request, proxyContext?.session || null, shop);
+    } else if (pathname.includes('/feedback')) {
+      return handleFeedback(request, proxyContext?.session || null, shop);
     } else if (pathname.includes('/debug-token')) {
       return handleTokenDebug(request, proxyContext?.session || null, shop);
     }
@@ -935,6 +939,95 @@ async function handleTokenDebug(request: Request, session: any | null, shop: str
     return json({
       error: error instanceof Error ? error.message : "Unknown error",
       timestamp: new Date().toISOString()
+    }, {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
+}
+
+// Handle feedback submission from widget
+async function handleFeedback(request: Request, session: any | null, shop: string) {
+  try {
+    if (request.method !== "POST") {
+      return json({ error: "Method not allowed" }, { status: 405, headers: corsHeaders });
+    }
+
+    const payload = await request.json();
+    console.log("📝 Feedback submission for shop:", shop, payload);
+
+    // Forward to FastAPI backend
+    const fastApiUrl = "https://cartrecover-bot.onrender.com";
+    const response = await fetch(`${fastApiUrl}/api/feedback/submit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...payload,
+        shop_domain: shop,
+        source: "widget"
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`FastAPI responded with status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Feedback submitted to FastAPI:", result);
+    
+    return json(result, { headers: corsHeaders });
+
+  } catch (error) {
+    console.error("❌ Feedback proxy error:", error);
+    return json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to submit feedback to backend"
+    }, {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
+}
+
+// Handle feedback session creation (for generating feedback links)
+async function handleFeedbackSession(request: Request, session: any | null, shop: string) {
+  try {
+    if (request.method !== "POST") {
+      return json({ error: "Method not allowed" }, { status: 405, headers: corsHeaders });
+    }
+
+    const payload = await request.json();
+    console.log("🔗 Creating feedback session for shop:", shop, payload);
+
+    // Forward to FastAPI backend to generate feedback link
+    const fastApiUrl = "https://cartrecover-bot.onrender.com";
+    const response = await fetch(`${fastApiUrl}/api/feedback/generate-feedback-link`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...payload,
+        shop_domain: shop
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`FastAPI responded with status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Feedback session created via FastAPI:", result);
+    
+    return json(result, { headers: corsHeaders });
+
+  } catch (error) {
+    console.error("❌ Feedback session creation error:", error);
+    return json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create feedback session via backend"
     }, {
       status: 500,
       headers: corsHeaders
