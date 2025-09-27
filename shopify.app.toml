@@ -57,10 +57,5 @@ redirect_urls = [
   "https://jarvis2-0-djg1.onrender.com/api/auth/callback"
 ]
 
-[app_proxy]
-url = "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy"
-subpath = "jarvis-proxy"
-prefix = "a"
-
 [pos]
 embedded = false
