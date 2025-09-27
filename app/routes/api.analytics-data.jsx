@@ -68,11 +68,25 @@ export async function loader({ request }) {
       }
     });
 
-    // Calculate aggregate metrics
-    const totalConversations = dailyMetrics.reduce((sum, day) => sum + day.totalConversations, 0);
+    // Get real-time conversation count directly from database
+    const actualTotalConversations = await prisma.chatConversation.count({
+      where: {
+        shopDomain,
+        startTime: {
+          gte: startDate,
+          lte: endDate
+        }
+      }
+    });
+
+    // Calculate aggregate metrics from daily metrics (for historical data)
+    const metricsConversations = dailyMetrics.reduce((sum, day) => sum + day.totalConversations, 0);
     const totalUniqueVisitors = dailyMetrics.reduce((sum, day) => sum + day.uniqueVisitors, 0);
     const totalConversions = dailyMetrics.reduce((sum, day) => sum + day.conversions, 0);
     const totalRevenue = dailyMetrics.reduce((sum, day) => sum + Number(day.revenue), 0);
+
+    // Use the higher count between actual conversations and metrics (ensures real-time accuracy)
+    const totalConversations = Math.max(actualTotalConversations, metricsConversations);
 
     const avgResponseTime = dailyMetrics
       .filter(day => day.averageResponseTime)
