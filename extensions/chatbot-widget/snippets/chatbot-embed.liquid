@@ -7,18 +7,19 @@
     shop_id: {{ shop.id }},
     shop_currency: "{{ shop.currency }}",
     shop_timezone: "{{ shop.timezone }}",
-    // CRITICAL: All API calls MUST go through Remix proxy to avoid CORS errors
+    // Updated to use app proxy routes - all calls go through Shopify's app proxy
     api_endpoints: {
-      chat: "https://jarvis2-0-djg1.onrender.com/api/chat",
-      recommendations: "https://jarvis2-0-djg1.onrender.com/api/recommendations",
-      abandoned_cart_discount: "https://jarvis2-0-djg1.onrender.com/api/abandoned-cart-discount",
-      session: "https://jarvis2-0-djg1.onrender.com/api/session",
-      customer_update: "https://jarvis2-0-djg1.onrender.com/api/customer/update",
-      widget_config: "https://jarvis2-0-djg1.onrender.com/api/widget-config"
+      chat: "/a/jarvis/chat",
+      recommendations: "/a/jarvis/recommendations", 
+      abandoned_cart_discount: "/a/jarvis/abandoned-cart-discount",
+      session: "/a/jarvis/session",
+      customer_update: "/a/jarvis/customer/update",
+      widget_config: "/a/jarvis/widget-config",
+      widget_settings: "/a/jarvis/widget-settings"
     },
-    // Force proxy usage
+    // Use app proxy for all API calls (no CORS issues)
     use_proxy: true,
-    proxy_base_url: "https://jarvis2-0-djg1.onrender.com"
+    proxy_base_url: "{{ shop.permanent_domain }}" // Use shop's domain for proxy calls
   };
   
   // Set global shop domain for backward compatibility

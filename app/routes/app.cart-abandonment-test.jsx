@@ -25,16 +25,38 @@ export async function loader({ request }) {
   const prisma = new PrismaClient();
   
   try {
-    // Get widget settings
-    const settings = await prisma.widgetSettings.findUnique({
+    console.log("🔍 Loading cart abandonment test data for shop:", session.shop);
+    
+    // Get widget settings - create if they don't exist
+    let settings = await prisma.widgetSettings.findUnique({
       where: { shopDomain: session.shop }
     });
+
+    if (!settings) {
+      console.log("📝 Creating default widget settings for shop:", session.shop);
+      settings = await prisma.widgetSettings.create({
+        data: { 
+          shopDomain: session.shop,
+          isEnabled: true,
+          cartAbandonmentEnabled: false,
+          cartAbandonmentDiscount: 10,
+          cartAbandonmentDelay: 5,
+          cartAbandonmentMessage: "Don't miss out! Complete your purchase and get {discount}% off!"
+        }
+      });
+    }
 
     // Get recent cart abandonment logs
     const recentLogs = await prisma.cartAbandonmentLog.findMany({
       where: { shopDomain: session.shop },
       orderBy: { createdAt: 'desc' },
       take: 10
+    });
+
+    console.log("✅ Cart abandonment test data loaded:", { 
+      hasSettings: !!settings, 
+      cartAbandonmentEnabled: settings?.cartAbandonmentEnabled,
+      logsCount: recentLogs.length 
     });
     
     return json({ 
@@ -43,12 +65,12 @@ export async function loader({ request }) {
       recentLogs
     });
   } catch (error) {
-    console.error("Error loading cart abandonment test data:", error);
+    console.error("❌ Error loading cart abandonment test data:", error);
     return json({ 
       settings: null, 
       shopDomain: session.shop,
       recentLogs: [],
-      error: "Failed to load data" 
+      error: error.message || "Failed to load data"
     });
   } finally {
     await prisma.$disconnect();
