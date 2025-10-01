@@ -42,22 +42,55 @@ export async function loader({ request }) {
   const prisma = new PrismaClient();
   
   try {
+    console.log("🔍 Loading widget settings for shop:", session.shop);
+    
+    // Test database connection
+    await prisma.$connect();
+    console.log("✅ Database connection successful");
+    
     let settings = await prisma.widgetSettings.findUnique({
       where: { shopDomain: session.shop }
     });
     
     // If no settings exist, create default ones
     if (!settings) {
-      settings = await prisma.widgetSettings.create({
-        data: { shopDomain: session.shop }
-      });
+      console.log("📝 Creating default widget settings for shop:", session.shop);
+      try {
+        settings = await prisma.widgetSettings.create({
+          data: { 
+            shopDomain: session.shop,
+            isEnabled: true,
+            primaryColor: "#007bff",
+            secondaryColor: "#0056b3",
+            buttonSize: "60px",
+            position: "bottom-right",
+            buttonIcon: "💬",
+            windowWidth: "320px",
+            windowHeight: "420px",
+            headerText: "Jarvis AI Chatbot",
+            placeholderText: "Type your message...",
+            welcomeMessage: "Hello! How can I assist you today?",
+            showTypingIndicator: true,
+            enableSounds: false,
+            autoOpen: false,
+            cartAbandonmentEnabled: false,
+            cartAbandonmentDiscount: 10,
+            cartAbandonmentDelay: 300,
+            cartAbandonmentMessage: "Don't miss out! Complete your purchase and get {discount}% off!"
+          }
+        });
+        console.log("✅ Default settings created successfully");
+      } catch (createError) {
+        console.error("❌ Failed to create default settings:", createError);
+        throw createError;
+      }
     }
     
-    console.log("📤 Loading settings for", session.shop, ":", settings);
+    console.log("✅ Widget settings loaded successfully for", session.shop);
     
     return json({ settings, shopDomain: session.shop });
   } catch (error) {
-    console.error("Error loading widget settings:", error);
+    console.error("❌ Error loading widget settings:", error);
     return json({ 
       settings: null, 
       shopDomain: session.shop,

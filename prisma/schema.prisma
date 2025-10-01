@@ -30,7 +30,7 @@ model Session {
 model Shop {
   id            Int           @id @default(autoincrement())
   shopDomain    String        @unique
-  accessToken   String?
+  accessToken   String
   installedAt   DateTime      @default(now())
   uninstalledAt DateTime?
   isActive      Boolean       @default(true)
@@ -51,29 +51,25 @@ model InstallationLog {
 }
 
 model WidgetSettings {
-  id                      Int      @id @default(autoincrement())
-  shopDomain              String   @unique
-  primaryColor            String   @default("#007bff")
-  secondaryColor          String   @default("#0056b3")
-  buttonSize              String   @default("60px")
-  position                String   @default("bottom-right")
-  buttonIcon              String   @default("💬")
-  windowWidth             String   @default("320px")
-  windowHeight            String   @default("420px")
-  headerText              String   @default("Jarvis AI Chatbot")
-  placeholderText         String   @default("Type your message...")
-  welcomeMessage          String   @default("Hello! How can I assist you today?")
-  showTypingIndicator     Boolean  @default(true)
-  enableSounds            Boolean  @default(false)
-  autoOpen                Boolean  @default(false)
-  customCSS               String?
-  isEnabled               Boolean  @default(true)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
-  cartAbandonmentDelay    Int      @default(300)
-  cartAbandonmentDiscount Int      @default(10)
-  cartAbandonmentEnabled  Boolean  @default(false)
-  cartAbandonmentMessage  String   @default("Don't miss out! Complete your purchase and save {discount}% with code {code}")
+  id                  Int      @id @default(autoincrement())
+  shopDomain          String   @unique
+  primaryColor        String   @default("#007bff")
+  secondaryColor      String   @default("#0056b3")
+  buttonSize          String   @default("60px")
+  position            String   @default("bottom-right")
+  buttonIcon          String   @default("💬")
+  windowWidth         String   @default("320px")
+  windowHeight        String   @default("420px")
+  headerText          String   @default("Jarvis AI Chatbot")
+  placeholderText     String   @default("Type your message...")
+  welcomeMessage      String   @default("Hello! How can I assist you today?")
+  showTypingIndicator Boolean  @default(true)
+  enableSounds        Boolean  @default(false)
+  autoOpen            Boolean  @default(false)
+  customCSS           String?
+  isEnabled           Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   @@index([shopDomain])
 }
@@ -130,74 +126,73 @@ model Payment {
   @@index([subscriptionId, status])
 }
 
-model ChatConversation {
-  id                   String        @id @default(cuid())
-  shopDomain           String
-  sessionId            String?
-  customerIp           String?
-  customerName         String?
-  startTime            DateTime      @default(now())
-  endTime              DateTime?
-  totalMessages        Int           @default(0)
-  customerSatisfaction Float?
-  converted            Boolean       @default(false)
-  conversionValue      Decimal?
-  topic                String?
-  status               String        @default("active")
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-  chatMessages         ChatMessage[]
+model CustomerFeedback {
+  id            Int      @id @default(autoincrement())
+  shopDomain    String
+  sessionId     String?
+  rating        Int
+  feedbackText  String?
+  customerName  String?
+  customerEmail String?
+  topic         String?
+  source        String   @default("shopify_app")
+  submittedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
 
-  @@index([shopDomain, startTime])
-  @@index([shopDomain, converted])
+  @@index([shopDomain, rating])
+  @@index([shopDomain, submittedAt])
+  @@index([topic])
 }
 
-model ChatMessage {
-  id             String           @id @default(cuid())
-  conversationId String
-  role           String
-  content        String
-  timestamp      DateTime         @default(now())
-  responseTime   Float?
-  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+model FeedbackSession {
+  id                Int      @id @default(autoincrement())
+  sessionId         String   @unique
+  shopDomain        String
+  feedbackToken     String   @unique
+  customerName      String?
+  customerEmail     String?
+  conversationTopic String?
+  expiresAt         DateTime
+  isCompleted       Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
 
-  @@index([conversationId, timestamp])
+  @@index([feedbackToken])
+  @@index([shopDomain])
 }
 
-model AnalyticsMetrics {
-  id                   String   @id @default(cuid())
-  shopDomain           String
-  date                 DateTime
-  totalConversations   Int      @default(0)
-  uniqueVisitors       Int      @default(0)
-  totalMessages        Int      @default(0)
-  averageResponseTime  Float?
-  conversions          Int      @default(0)
-  revenue              Decimal  @default(0)
-  customerSatisfaction Float?
-  topQuestions         Json?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model customer_feedback {
+  id                 Int       @id @default(autoincrement())
+  session_id         String    @db.VarChar(255)
+  shop_domain        String    @db.VarChar(255)
+  rating             Int
+  feedback_text      String?
+  customer_name      String?   @db.VarChar(255)
+  customer_email     String?   @db.VarChar(255)
+  conversation_topic String?   @db.VarChar(100)
+  submitted_at       DateTime? @default(now()) @db.Timestamp(6)
+  created_at         DateTime? @default(now()) @db.Timestamp(6)
+  updated_at         DateTime? @default(now()) @db.Timestamp(6)
 
-  @@unique([shopDomain, date])
-  @@index([shopDomain, date])
+  @@index([session_id], map: "idx_customer_feedback_session_id")
+  @@index([shop_domain], map: "idx_customer_feedback_shop_domain")
+  @@index([submitted_at], map: "idx_customer_feedback_submitted_at")
 }
 
-model CartAbandonmentLog {
-  id                 String    @id @default(cuid())
-  sessionId          String?
-  shopDomain         String
-  customerId         String?
-  discountCode       String?
-  discountPercentage Int
-  cartTotal          Float?
-  success            Boolean   @default(false)
-  errorMessage       String?
-  used               Boolean   @default(false)
-  usedAt             DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model feedback_sessions {
+  id             Int       @id @default(autoincrement())
+  feedback_token String    @unique @db.VarChar(255)
+  session_id     String    @db.VarChar(255)
+  shop_domain    String    @db.VarChar(255)
+  customer_info  Json?
+  status         String?   @default("pending") @db.VarChar(20)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  expires_at     DateTime  @db.Timestamp(6)
+  completed_at   DateTime? @db.Timestamp(6)
 
-  @@index([customerId, shopDomain, createdAt])
-  @@index([shopDomain, createdAt])
+  @@index([shop_domain], map: "idx_feedback_sessions_shop_domain")
+  @@index([feedback_token], map: "idx_feedback_sessions_token")
 }

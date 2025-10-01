@@ -27,6 +27,10 @@ export async function loader({ request }) {
   try {
     console.log("🔍 Loading cart abandonment test data for shop:", session.shop);
     
+    // Test database connection first
+    await prisma.$connect();
+    console.log("✅ Database connection successful");
+    
     // Get widget settings - create if they don't exist
     let settings = await prisma.widgetSettings.findUnique({
       where: { shopDomain: session.shop }
@@ -34,24 +38,58 @@ export async function loader({ request }) {
 
     if (!settings) {
       console.log("📝 Creating default widget settings for shop:", session.shop);
-      settings = await prisma.widgetSettings.create({
-        data: { 
+      try {
+        settings = await prisma.widgetSettings.create({
+          data: { 
+            shopDomain: session.shop,
+            isEnabled: true,
+            primaryColor: "#007bff",
+            secondaryColor: "#0056b3",
+            buttonSize: "60px",
+            position: "bottom-right",
+            buttonIcon: "💬",
+            windowWidth: "320px",
+            windowHeight: "420px",
+            headerText: "Jarvis AI Chatbot",
+            placeholderText: "Type your message...",
+            welcomeMessage: "Hello! How can I assist you today?",
+            showTypingIndicator: true,
+            enableSounds: false,
+            autoOpen: false,
+            cartAbandonmentEnabled: false,
+            cartAbandonmentDiscount: 10,
+            cartAbandonmentDelay: 300,
+            cartAbandonmentMessage: "Don't miss out! Complete your purchase and get {discount}% off!"
+          }
+        });
+        console.log("✅ Default settings created successfully");
+      } catch (createError) {
+        console.error("❌ Failed to create default settings:", createError);
+        // If we can't create, return default values in memory
+        settings = {
           shopDomain: session.shop,
           isEnabled: true,
           cartAbandonmentEnabled: false,
           cartAbandonmentDiscount: 10,
-          cartAbandonmentDelay: 5,
-          cartAbandonmentMessage: "Don't miss out! Complete your purchase and get {discount}% off!"
-        }
-      });
+          cartAbandonmentDelay: 300,
+          cartAbandonmentMessage: "Don't miss out! Complete your purchase and get {discount}% off!",
+          primaryColor: "#007bff",
+          secondaryColor: "#0056b3"
+        };
+      }
     }
 
     // Get recent cart abandonment logs
-    const recentLogs = await prisma.cartAbandonmentLog.findMany({
-      where: { shopDomain: session.shop },
-      orderBy: { createdAt: 'desc' },
-      take: 10
-    });
+    let recentLogs = [];
+    try {
+      recentLogs = await prisma.cartAbandonmentLog.findMany({
+        where: { shopDomain: session.shop },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      });
+    } catch (logError) {
+      console.warn("⚠️ Could not load recent logs:", logError.message);
+    }
 
     console.log("✅ Cart abandonment test data loaded:", { 
       hasSettings: !!settings, 
@@ -62,15 +100,28 @@ export async function loader({ request }) {
     return json({ 
       settings, 
       shopDomain: session.shop,
-      recentLogs
+      recentLogs,
+      success: true
     });
   } catch (error) {
-    console.error("❌ Error loading cart abandonment test data:", error);
+    console.error("❌ Critical error loading cart abandonment test data:", error);
+    
+    // Return fallback data instead of failing completely
     return json({ 
-      settings: null, 
+      settings: {
+        shopDomain: session.shop,
+        isEnabled: true,
+        cartAbandonmentEnabled: false,
+        cartAbandonmentDiscount: 10,
+        cartAbandonmentDelay: 300,
+        cartAbandonmentMessage: "Don't miss out! Complete your purchase and get {discount}% off!",
+        primaryColor: "#007bff",
+        secondaryColor: "#0056b3"
+      }, 
       shopDomain: session.shop,
       recentLogs: [],
-      error: error.message || "Failed to load data"
+      error: error.message || "Failed to load data",
+      fallback: true
     });
   } finally {
     await prisma.$disconnect();
