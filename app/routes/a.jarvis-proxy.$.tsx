@@ -635,22 +635,111 @@ async function handleWidgetConfig(request: Request, session: any | null, shop: s
 }
 
 async function handleWidgetSettings(request: Request, session: any | null, shop: string) {
-  // Return widget settings for the authenticated shop
-  // This would typically come from your database
-  return json({
-    success: true,
-    shop: shop,
-    settings: {
-      isEnabled: true,
-      primaryColor: "#007bff",
-      secondaryColor: "#0056b3",
-      headerText: "Jarvis AI Assistant",
-      welcomeMessage: "Hello! How can I help you today?"
-    },
-    timestamp: new Date().toISOString()
-  }, {
-    headers: corsHeaders
-  });
+  try {
+    console.log("⚙️ Widget settings request for shop:", shop);
+    
+    // Get widget settings from database
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      let settings = await prisma.widgetSettings.findUnique({
+        where: { shopDomain: shop }
+      });
+
+      // If no settings exist, create default ones
+      if (!settings) {
+        console.log("📝 Creating default widget settings for shop:", shop);
+        settings = await prisma.widgetSettings.create({
+          data: { 
+            shopDomain: shop,
+            isEnabled: true,
+            primaryColor: "#007bff",
+            secondaryColor: "#0056b3",
+            headerText: "Jarvis AI Assistant",
+            welcomeMessage: "Hello! How can I help you today?",
+            placeholderText: "Type your message...",
+            position: "bottom-right",
+            buttonSize: "60px",
+            buttonIcon: "💬",
+            windowWidth: "320px",
+            windowHeight: "420px"
+          }
+        });
+      }
+
+      console.log("✅ Widget settings loaded for shop:", shop, settings);
+
+      await prisma.$disconnect();
+
+      return json({
+        success: true,
+        shop: shop,
+        settings: {
+          isEnabled: settings.isEnabled,
+          primaryColor: settings.primaryColor,
+          secondaryColor: settings.secondaryColor,
+          buttonSize: settings.buttonSize,
+          position: settings.position,
+          buttonIcon: settings.buttonIcon,
+          windowWidth: settings.windowWidth,
+          windowHeight: settings.windowHeight,
+          headerText: settings.headerText,
+          placeholderText: settings.placeholderText,
+          welcomeMessage: settings.welcomeMessage,
+          showTypingIndicator: settings.showTypingIndicator,
+          enableSounds: settings.enableSounds,
+          autoOpen: settings.autoOpen,
+          customCSS: settings.customCSS,
+          cartAbandonmentEnabled: settings.cartAbandonmentEnabled,
+          cartAbandonmentDiscount: settings.cartAbandonmentDiscount,
+          cartAbandonmentDelay: settings.cartAbandonmentDelay,
+          cartAbandonmentMessage: settings.cartAbandonmentMessage
+        },
+        timestamp: new Date().toISOString()
+      }, {
+        headers: corsHeaders
+      });
+
+    } catch (dbError) {
+      console.error("❌ Database error in widget settings:", dbError);
+      await prisma.$disconnect();
+      
+      // Return default settings if database fails
+      return json({
+        success: false,
+        error: "Database error - using default settings",
+        shop: shop,
+        settings: {
+          isEnabled: true,
+          primaryColor: "#007bff",
+          secondaryColor: "#0056b3",
+          headerText: "Jarvis AI Assistant",
+          welcomeMessage: "Hello! How can I help you today?",
+          placeholderText: "Type your message...",
+          position: "bottom-right",
+          buttonSize: "60px",
+          buttonIcon: "💬",
+          windowWidth: "320px",
+          windowHeight: "420px"
+        },
+        timestamp: new Date().toISOString()
+      }, {
+        headers: corsHeaders
+      });
+    }
+
+  } catch (error) {
+    console.error("❌ Widget settings proxy error:", error);
+    return json({
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString()
+    }, {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
 }
 
 async function handleAbandonedCartDiscount(request: Request, session: any | null, shop: string) {
