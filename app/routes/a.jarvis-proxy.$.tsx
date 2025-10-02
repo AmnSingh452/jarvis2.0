@@ -104,9 +104,18 @@ async function saveConversationToDatabase(payload: any, response: any, shopDomai
           shopDomain,
           customerName: "Anonymous", // We don't have customer name from widget
           topic: inferTopicFromMessage(customerMessage),
-          startTime: new Date(),
+          totalMessages: 1,
           converted: false,
           conversionValue: 0
+        }
+      });
+    } else {
+      // Update message count
+      await prisma.chatConversation.update({
+        where: { id: conversation.id },
+        data: { 
+          totalMessages: { increment: 1 },
+          updatedAt: new Date()
         }
       });
     }
@@ -116,8 +125,7 @@ async function saveConversationToDatabase(payload: any, response: any, shopDomai
       data: {
         conversationId: conversation.id,
         role: 'user',
-        content: customerMessage,
-        timestamp: new Date()
+        content: customerMessage
       }
     });
 
@@ -126,8 +134,16 @@ async function saveConversationToDatabase(payload: any, response: any, shopDomai
         data: {
           conversationId: conversation.id,
           role: 'assistant', 
-          content: botResponse,
-          timestamp: new Date()
+          content: botResponse
+        }
+      });
+      
+      // Update message count for bot response
+      await prisma.chatConversation.update({
+        where: { id: conversation.id },
+        data: { 
+          totalMessages: { increment: 1 },
+          updatedAt: new Date()
         }
       });
     }

@@ -151,14 +151,14 @@ async function processUninstall(shop, db) {
     });
     console.log(`✅ Deleted ${deletedSessions.count} sessions`);
 
-    // Step 2: Update shop records (nullify tokens)
+    // Step 2: Update shop records (clear tokens with empty string to avoid null constraint)
     console.log(`🧹 Step 2: Updating shop records for ${shop}`);
     const updatedShop = await db.shop.updateMany({
       where: { shopDomain: shop },
       data: { 
         isActive: false, 
         uninstalledAt: new Date(), 
-        accessToken: null, // Critical: Clear the access token
+        accessToken: "", // Critical: Clear the access token (empty string to avoid null constraint)
         tokenVersion: { increment: 1 } // Invalidate any cached tokens
       },
     });
