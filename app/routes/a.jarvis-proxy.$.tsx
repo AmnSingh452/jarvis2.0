@@ -2,7 +2,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 
-// CORS headers for all responses - updated
+// CORS headers for all responses
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -10,7 +10,7 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400"
 };
 
-// Track analytics events (same logic as direct API)
+// Track analytics events
 async function trackAnalyticsEvents(payload: any, response: any, shopDomain: string) {
   try {
     const sessionId = payload.session_id;
@@ -30,7 +30,7 @@ async function trackAnalyticsEvents(payload: any, response: any, shopDomain: str
       });
     }
 
-    // Track conversation start (if new session)
+    // Track conversation start
     if (sessionId) {
       await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
         method: "POST",
@@ -44,8 +44,8 @@ async function trackAnalyticsEvents(payload: any, response: any, shopDomain: str
       });
     }
 
-    // Track message with basic response time
-    const responseTime = Math.random() * 2 + 1; // Simulate 1-3 second response time
+    // Track message with response time
+    const responseTime = Math.random() * 2 + 1;
     await fetch("https://jarvis2-0-djg1.onrender.com/api/analytics-event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -79,7 +79,7 @@ async function trackAnalyticsEvents(payload: any, response: any, shopDomain: str
   }
 }
 
-// Save conversation to database (same logic as direct API)
+// Save conversation to database
 async function saveConversationToDatabase(payload: any, response: any, shopDomain: string) {
   try {
     const { PrismaClient } = await import("@prisma/client");
@@ -102,7 +102,7 @@ async function saveConversationToDatabase(payload: any, response: any, shopDomai
         data: {
           sessionId,
           shopDomain,
-          customerName: "Anonymous", // We don't have customer name from widget
+          customerName: "Anonymous",
           topic: inferTopicFromMessage(customerMessage),
           totalMessages: 1,
           converted: false,
@@ -198,7 +198,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     } catch (authError) {
       console.log("ℹ️ Authentication failed - likely a direct test request:", authError instanceof Error ? authError.message : String(authError));
-      // Continue with test mode
     }
     
     const url = new URL(request.url);
@@ -241,6 +240,7 @@ export async function action({ request }: ActionFunctionArgs) {
     let proxyContext;
     let shop = "test-shop";
     
+    
     try {
       proxyContext = await authenticate.public.appProxy(request);
       if (proxyContext.session) {
@@ -251,7 +251,6 @@ export async function action({ request }: ActionFunctionArgs) {
       }
     } catch (authError) {
       console.log("ℹ️ Authentication failed - likely a direct test request:", authError instanceof Error ? authError.message : String(authError));
-      // Continue with test mode
     }
 
     // If no authenticated shop, try to extract from request payload
@@ -282,6 +281,8 @@ export async function action({ request }: ActionFunctionArgs) {
     // Route to different handlers based on path
     if (pathname.includes('/chat')) {
       return handleChat(request, proxyContext?.session || null, shop);
+    } else if (pathname.includes('/session')) {
+      return handleSessionData(request, proxyContext?.session || null, shop);
     } else if (pathname.includes('/register-shop')) {
       return handleShopRegistration(request, proxyContext?.session || null, shop);
     } else if (pathname.includes('/abandoned-cart-discount')) {
@@ -368,7 +369,6 @@ async function handleChat(request: Request, session: any | null, shop: string) {
     if (session) {
       console.log("🔍 Session object keys:", Object.keys(session));
       
-      // Try different possible token locations in Shopify session
       accessToken = session.accessToken || session.token || session.access_token;
       
       if (accessToken) {
@@ -378,7 +378,6 @@ async function handleChat(request: Request, session: any | null, shop: string) {
         console.log("⚠️ No access token found in session");
         console.log("🔍 Available session properties:", Object.keys(session));
         
-        // Try to get a fresh session from database if available
         if (shop !== "test-shop") {
           try {
             console.log("🔄 Attempting to fetch fresh session from database...");
@@ -404,7 +403,7 @@ async function handleChat(request: Request, session: any | null, shop: string) {
     const externalPayload = {
       ...payload,
       shop_domain: shop,
-      access_token: accessToken // Include access token for Shopify API calls
+      access_token: accessToken
     };
     
     console.log("🚀 Sending to external API:", {
@@ -505,12 +504,6 @@ async function handleChat(request: Request, session: any | null, shop: string) {
       }
     }
 
-    // Handle case where external API returns an error but is parseable
-    if (!externalData.success && externalData.error && externalData.error.includes("Shop not found") && session && session.accessToken) {
-      console.log("🔄 Parsed error indicates shop not found, attempting registration...");
-      // Similar registration logic as above could be added here
-    }
-
     // Transform the external API response to match widget expectations
     const transformedResponse = {
       success: externalData.success || false,
@@ -528,7 +521,7 @@ async function handleChat(request: Request, session: any | null, shop: string) {
     const finalShopDomain = payload.shop_domain || shop;
     console.log("🏪 Using shop domain for analytics:", finalShopDomain);
 
-    // Track analytics events and save conversation in the background (like the direct API)
+    // Track analytics events and save conversation in the background
     Promise.all([
       trackAnalyticsEvents(payload, transformedResponse, finalShopDomain),
       saveConversationToDatabase(payload, transformedResponse, finalShopDomain)
@@ -619,14 +612,14 @@ async function handleWidgetConfig(request: Request, session: any | null, shop: s
     shop: shop,
     config: {
       api_endpoints: {
-        chat: `/a/jarvis-proxy/chat`,
-        session: `/a/jarvis-proxy/session`,
-        customer_update: `/a/jarvis-proxy/customer/update`,
-        recommendations: `/a/jarvis-proxy/recommendations`,
-        abandoned_cart_discount: `/a/jarvis-proxy/abandoned-cart-discount`
+        chat: `https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/chat`,
+        session: `https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/session`,
+        customer_update: `https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/customer/update`,
+        recommendations: `https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/recommendations`,
+        abandoned_cart_discount: `https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/abandoned-cart-discount`
       },
       use_proxy: true,
-      proxy_base_url: "" // Will use relative URLs
+      proxy_base_url: "https://jarvis2-0-djg1.onrender.com"
     },
     timestamp: new Date().toISOString()
   }, {
@@ -691,6 +684,7 @@ async function handleWidgetSettings(request: Request, session: any | null, shop:
           enableSounds: settings.enableSounds,
           autoOpen: settings.autoOpen,
           customCSS: settings.customCSS,
+          // Cart abandonment settings
           cartAbandonmentEnabled: settings.cartAbandonmentEnabled,
           cartAbandonmentDiscount: settings.cartAbandonmentDiscount,
           cartAbandonmentDelay: settings.cartAbandonmentDelay,
@@ -746,13 +740,11 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
   try {
     console.log("🛒 Cart abandonment API called via proxy for shop:", shop);
     
-    // Parse the incoming request
     const body = await request.text();
     const contentType = request.headers.get("content-type");
     
     console.log("📦 Request body:", body);
 
-    // Parse request data for rate limiting
     let requestData;
     try {
       requestData = JSON.parse(body);
@@ -774,7 +766,6 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
       const { PrismaClient } = await import("@prisma/client");
       const prisma = new PrismaClient();
 
-      // Check for existing discount within 24 hours
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       
       const recentDiscount = await prisma.cartAbandonmentLog.findFirst({
@@ -784,7 +775,7 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
             { sessionId: session_id },
             ...(customer_id ? [{ customerId: customer_id }] : [])
           ],
-          success: true,
+          used: false,
           createdAt: {
             gte: twentyFourHoursAgo
           }
@@ -813,7 +804,7 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
             waitUntil: new Date(recentDiscount.createdAt.getTime() + 24 * 60 * 60 * 1000)
           }
         }, {
-          status: 429, // Too Many Requests
+          status: 429,
           headers: corsHeaders
         });
       }
@@ -821,7 +812,6 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
       await prisma.$disconnect();
     } catch (dbError) {
       console.warn("⚠️ Database rate limiting check failed:", dbError);
-      // Continue without rate limiting if DB fails
     }
 
     // Forward the request to the external CartRecover_Bot API
@@ -854,7 +844,6 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
               customerId: customer_id || `anon_${Date.now()}`,
               discountCode: responseJson.discountCode || responseJson.discount_code,
               discountPercentage: parseInt(responseJson.discount || responseJson.discount_percentage || '10'),
-              success: true,
               used: false
             }
           });
@@ -891,20 +880,17 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
 }
 
 async function handleRecommendations(request: Request, session: any | null, shop: string) {
-  // Handle product recommendations by forwarding to external API
   try {
     console.log("🛍️ Handling recommendations request for shop:", shop);
     
     const body = await request.text();
     console.log("🛍️ Request body:", body);
 
-    // Get access token for the shop
     let accessToken = null;
     if (session && session.accessToken) {
       accessToken = session.accessToken;
       console.log("🛍️ Using session access token");
     } else {
-      // Try to get token from database
       try {
         const db = (await import("../db.server")).default;
         const shopRecord = await db.shop.findUnique({
@@ -919,7 +905,6 @@ async function handleRecommendations(request: Request, session: any | null, shop
       }
     }
 
-    // Prepare payload for external API
     let payload;
     try {
       payload = JSON.parse(body || '{}');
@@ -935,7 +920,6 @@ async function handleRecommendations(request: Request, session: any | null, shop
 
     console.log("🛍️ Forwarding to external recommendations API");
 
-    // Forward to external API
     const response = await fetch("https://cartrecover-bot.onrender.com/api/recommendations", {
       method: "POST",
       headers: {
@@ -948,7 +932,6 @@ async function handleRecommendations(request: Request, session: any | null, shop
     const responseText = await response.text();
     console.log("🛍️ External API response:", response.status, responseText);
 
-    // Parse and return the response
     let externalData;
     try {
       externalData = JSON.parse(responseText);
@@ -988,8 +971,103 @@ async function handleRecommendations(request: Request, session: any | null, shop
   }
 }
 
+async function handleSessionData(request: Request, session: any | null, shop: string) {
+  try {
+    console.log("📝 Session data request for shop:", shop);
+    
+    const url = new URL(request.url);
+    const sessionId = url.searchParams.get('session_id');
+    
+    if (!sessionId) {
+      return json({
+        success: false,
+        error: "Session ID required",
+        timestamp: new Date().toISOString()
+      }, {
+        status: 400,
+        headers: corsHeaders
+      });
+    }
+
+    // Get chat history from database
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const conversation = await prisma.chatConversation.findFirst({
+        where: { sessionId },
+        include: {
+          chatMessages: {
+            orderBy: { timestamp: 'asc' }
+          }
+        }
+      });
+
+      await prisma.$disconnect();
+
+      if (!conversation) {
+        return json({
+          success: true,
+          shop: shop,
+          session_id: sessionId,
+          messages: [],
+          timestamp: new Date().toISOString()
+        }, {
+          headers: corsHeaders
+        });
+      }
+
+      const messages = conversation.chatMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp
+      }));
+
+      return json({
+        success: true,
+        shop: shop,
+        session_id: sessionId,
+        messages: messages,
+        conversation: {
+          topic: conversation.topic,
+          totalMessages: conversation.totalMessages,
+          startTime: conversation.startTime
+        },
+        timestamp: new Date().toISOString()
+      }, {
+        headers: corsHeaders
+      });
+
+    } catch (dbError) {
+      console.error("❌ Database error in session handler:", dbError);
+      await prisma.$disconnect();
+      
+      return json({
+        success: true,
+        shop: shop,
+        session_id: sessionId,
+        messages: [],
+        error: "Database unavailable",
+        timestamp: new Date().toISOString()
+      }, {
+        headers: corsHeaders
+      });
+    }
+
+  } catch (error) {
+    console.error("❌ Session handler error:", error);
+    return json({
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString()
+    }, {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
+}
+
 async function handleCustomerUpdate(request: Request, session: any | null, shop: string) {
-  // Handle customer updates
   return json({
     success: true,
     shop: shop,
@@ -1013,13 +1091,11 @@ async function handleTokenDebug(request: Request, session: any | null, shop: str
     };
 
     if (session) {
-      // Get access token
       const accessToken = session.accessToken || session.token || session.access_token;
       debugInfo.hasAccessToken = !!accessToken;
       debugInfo.tokenPreview = accessToken ? accessToken.substring(0, 15) + "..." : null;
       debugInfo.tokenType = accessToken ? (accessToken.startsWith('shpat_') ? 'offline' : 'unknown') : null;
       
-      // Try to get fresh session from database
       try {
         const { sessionStorage } = await import("../shopify.server");
         const freshSessions = await sessionStorage.findSessionsByShop(shop);
@@ -1061,7 +1137,6 @@ async function handleFeedback(request: Request, session: any | null, shop: strin
     const payload = await request.json();
     console.log("📝 Feedback submission for shop:", shop, payload);
 
-    // Forward to FastAPI backend
     const fastApiUrl = "https://cartrecover-bot.onrender.com";
     const response = await fetch(`${fastApiUrl}/api/feedback/submit`, {
       method: "POST",
@@ -1096,7 +1171,7 @@ async function handleFeedback(request: Request, session: any | null, shop: strin
   }
 }
 
-// Handle feedback session creation (for generating feedback links)
+// Handle feedback session creation
 async function handleFeedbackSession(request: Request, session: any | null, shop: string) {
   try {
     if (request.method !== "POST") {
@@ -1106,7 +1181,6 @@ async function handleFeedbackSession(request: Request, session: any | null, shop
     const payload = await request.json();
     console.log("🔗 Creating feedback session for shop:", shop, payload);
 
-    // Forward to FastAPI backend to generate feedback link
     const fastApiUrl = "https://cartrecover-bot.onrender.com";
     const response = await fetch(`${fastApiUrl}/api/feedback/generate-feedback-link`, {
       method: "POST",
