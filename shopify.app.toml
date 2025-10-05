@@ -46,8 +46,8 @@ scopes = "read_customers,read_discounts,read_fulfillments,read_orders,read_produ
 
 [app_proxy]
 # App proxy configuration for widget integration
-url = "https://jarvis2-0-djg1.onrender.com/"
-subpath = "jarvis"
+url = "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy"
+subpath = "jarvis-proxy"
 prefix = "a"
 
 [auth]

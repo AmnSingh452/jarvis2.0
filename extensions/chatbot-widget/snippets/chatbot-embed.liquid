@@ -1,24 +1,24 @@
 <div id="chatbot-widget"></div>
 <script>
-  // PROPER SHOPIFY APP PROXY CONFIGURATION
+  // PROPER SHOPIFY APP PROXY CONFIGURATION - Synchronized with commit 54295bc
   window.SHOPIFY_CHATBOT_CONFIG = {
     shop_domain: "{{ shop.permanent_domain }}",
     shop_name: "{{ shop.name }}",
     shop_id: {{ shop.id }},
     shop_currency: "{{ shop.currency }}",
     shop_timezone: "{{ shop.timezone }}",
-    // Use Shopify App Proxy URLs - these get routed through Shopify to our app
+    // Use proper Shopify app proxy routes (prefix=a, subpath=jarvis-proxy)
     api_endpoints: {
-      chat: "/a/jarvis/chat",
-      recommendations: "/a/jarvis/recommendations", 
-      abandoned_cart_discount: "/a/jarvis/abandoned-cart-discount",
-      session: "/a/jarvis/session",
-      customer_update: "/a/jarvis/customer/update",
-      widget_config: "/a/jarvis/widget-config",
-      widget_settings: "/a/jarvis/widget-settings"
+      chat: "/a/jarvis-proxy/chat",
+      recommendations: "/a/jarvis-proxy/recommendations", 
+      abandoned_cart_discount: "/a/jarvis-proxy/abandoned-cart-discount",
+      session: "/a/jarvis-proxy/session",
+      customer_update: "/a/jarvis-proxy/customer/update",
+      widget_config: "/a/jarvis-proxy/widget-config",
+      widget_settings: "/a/jarvis-proxy/widget-settings"
     },
     use_proxy: true,
-    proxy_base_url: "" // Empty means use current domain (shop's domain for app proxy)
+    proxy_base_url: "" // Empty for Shopify app proxy (uses current domain)
   };
 
   // Set global shop domain for backward compatibility
@@ -28,11 +28,10 @@
   window.Shopify = window.Shopify || {};
   window.Shopify.shop = "{{ shop.permanent_domain }}";
 
-  // Debug: Log the configuration
+  // Debug: Log the configuration for troubleshooting
   console.log('🤖 Chatbot Config (SHOPIFY APP PROXY):', window.SHOPIFY_CHATBOT_CONFIG);
   console.log('🏪 Shop Domain:', window.SHOP_DOMAIN);
-  console.log('� App Proxy: /a/jarvis/* → https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/*');
+  console.log('🔄 Shopify routes /a/jarvis-proxy/* → https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/*');
 </script>
 <script src="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.js"></script>
-<link rel="stylesheet" href="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.css"> 
-
+<link rel="stylesheet" href="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.css">

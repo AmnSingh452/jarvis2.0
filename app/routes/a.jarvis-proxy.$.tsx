@@ -201,13 +201,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
     
     const url = new URL(request.url);
-    const pathname = url.pathname;
+    let pathname = url.pathname;
+    
+    // PROXY PATH FIX: Handle path mismatch between /a/jarvis/* and /a/jarvis-proxy/*
+    console.log("📍 Original pathname:", pathname);
+    
+    // Normalize path: if it contains /a/jarvis/ but not /a/jarvis-proxy/, add the -proxy
+    if (pathname.includes('/a/jarvis/') && !pathname.includes('/a/jarvis-proxy/')) {
+      pathname = pathname.replace('/a/jarvis/', '/a/jarvis-proxy/');
+      console.log("🔄 Normalized pathname:", pathname);
+    }
     
     // Route to different handlers based on path
     if (pathname.includes('/widget-config')) {
       return handleWidgetConfig(request, proxyContext?.session || null, shop);
     } else if (pathname.includes('/widget-settings')) {
       return handleWidgetSettings(request, proxyContext?.session || null, shop);
+    } else if (pathname.includes('/widget-init.js')) {
+      return handleWidgetInit(request, proxyContext?.session || null, shop);
     }
     
     // Default response
@@ -276,7 +287,16 @@ export async function action({ request }: ActionFunctionArgs) {
     }
     
     const url = new URL(request.url);
-    const pathname = url.pathname;
+    let pathname = url.pathname;
+    
+    // PROXY PATH FIX: Handle path mismatch between /a/jarvis/* and /a/jarvis-proxy/*
+    console.log("📍 POST Original pathname:", pathname);
+    
+    // Normalize path: if it contains /a/jarvis/ but not /a/jarvis-proxy/, add the -proxy
+    if (pathname.includes('/a/jarvis/') && !pathname.includes('/a/jarvis-proxy/')) {
+      pathname = pathname.replace('/a/jarvis/', '/a/jarvis-proxy/');
+      console.log("🔄 POST Normalized pathname:", pathname);
+    }
     
     // Route to different handlers based on path
     if (pathname.includes('/chat')) {
@@ -1210,6 +1230,125 @@ async function handleFeedbackSession(request: Request, session: any | null, shop
     }, {
       status: 500,
       headers: corsHeaders
+    });
+  }
+}
+
+async function handleWidgetInit(request: Request, session: any | null, shop: string) {
+  try {
+    console.log("🔧 Widget initialization script requested for shop:", shop);
+    
+    const shopDomain = shop || "demo-shop";
+    
+    // Generate the widget initialization script with shop-specific configuration
+    const initScript = `
+// Jarvis Widget Configuration Loader - Auto-generated for ${shopDomain}
+(function() {
+    'use strict';
+    
+    console.log('🎯 Jarvis Widget Initializing for shop: ${shopDomain}');
+    
+    // Widget configuration
+    let widgetConfig = null;
+    
+    // Function to load widget configuration
+    async function loadWidgetConfig() {
+        try {
+            const configUrl = 'https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/widget-config?shop=${shopDomain}';
+            console.log('🔧 Loading widget configuration from:', configUrl);
+            
+            const response = await fetch(configUrl);
+            const config = await response.json();
+            
+            if (config.success) {
+                widgetConfig = config.config;
+                console.log('✅ Widget configuration loaded:', widgetConfig);
+                
+                // Override global API URLs
+                if (window.updateApiUrls) {
+                    window.updateApiUrls(widgetConfig.api_endpoints);
+                }
+                
+                return widgetConfig;
+            } else {
+                console.error('❌ Failed to load widget configuration:', config);
+                return null;
+            }
+        } catch (error) {
+            console.error('❌ Error loading widget configuration:', error);
+            return null;
+        }
+    }
+    
+    // Function to get API URL with configuration
+    function getApiUrl(endpoint) {
+        if (widgetConfig && widgetConfig.api_endpoints && widgetConfig.api_endpoints[endpoint]) {
+            return widgetConfig.api_endpoints[endpoint];
+        }
+        
+        // Fallback to full URLs
+        const baseUrl = 'https://jarvis2-0-djg1.onrender.com';
+        const endpoints = {
+            chat: baseUrl + '/a/jarvis-proxy/chat',
+            session: baseUrl + '/a/jarvis-proxy/session',
+            recommendations: baseUrl + '/a/jarvis-proxy/recommendations',
+            abandoned_cart_discount: baseUrl + '/a/jarvis-proxy/abandoned-cart-discount',
+            customer_update: baseUrl + '/a/jarvis-proxy/customer/update'
+        };
+        
+        return endpoints[endpoint] || baseUrl + '/a/jarvis-proxy/' + endpoint;
+    }
+    
+    // Make functions globally available for the widget
+    window.JarvisWidgetConfig = {
+        load: loadWidgetConfig,
+        get: function() { return widgetConfig; },
+        getApiUrl: getApiUrl,
+        shopDomain: '${shopDomain}'
+    };
+    
+    // Override fetch for API calls to use correct URLs
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (typeof url === 'string' && url.startsWith('/a/jarvis-proxy/')) {
+            const endpoint = url.replace('/a/jarvis-proxy/', '').replace('/', '');
+            const fullUrl = getApiUrl(endpoint) || 'https://jarvis2-0-djg1.onrender.com' + url;
+            console.log('🔄 Redirecting API call from', url, 'to', fullUrl);
+            return originalFetch(fullUrl, options);
+        }
+        return originalFetch(url, options);
+    };
+    
+    // Auto-load configuration
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadWidgetConfig);
+    } else {
+        loadWidgetConfig();
+    }
+    
+    console.log('🎯 Jarvis Widget Configuration Loader initialized for ${shopDomain}');
+})();`;
+
+    // Return JavaScript content
+    return new Response(initScript, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Widget init handler error:", error);
+    return new Response(`console.error('Failed to load Jarvis widget configuration: ${error instanceof Error ? error.message : 'Unknown error'}');`, {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/javascript; charset=utf-8'
+      }
     });
   }
 }
