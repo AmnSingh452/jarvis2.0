@@ -7,19 +7,19 @@
     shop_id: {{ shop.id }},
     shop_currency: "{{ shop.currency }}",
     shop_timezone: "{{ shop.timezone }}",
-    // Updated to use app proxy routes - all calls go through Shopify's app proxy
+    // Updated to use full app proxy URLs - all calls go through your deployed app
     api_endpoints: {
-      chat: "/a/jarvis/chat",
-      recommendations: "/a/jarvis/recommendations", 
-      abandoned_cart_discount: "/a/jarvis/abandoned-cart-discount",
-      session: "/a/jarvis/session",
-      customer_update: "/a/jarvis/customer/update",
-      widget_config: "/a/jarvis/widget-config",
-      widget_settings: "/a/jarvis/widget-settings"
+      chat: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/chat",
+      recommendations: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/recommendations", 
+      abandoned_cart_discount: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/abandoned-cart-discount",
+      session: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/session",
+      customer_update: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/customer/update",
+      widget_config: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/widget-config",
+      widget_settings: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/widget-settings"
     },
     // Use app proxy for all API calls (no CORS issues)
     use_proxy: true,
-    proxy_base_url: "{{ shop.permanent_domain }}" // Use shop's domain for proxy calls
+    proxy_base_url: "https://jarvis2-0-djg1.onrender.com" // Use your app's domain for proxy calls
   };
   
   // Set global shop domain for backward compatibility
@@ -30,9 +30,9 @@
   window.Shopify.shop = "{{ shop.permanent_domain }}";
   
   // Debug: Log the configuration for troubleshooting
-  console.log('🤖 Chatbot Config (CORS PROXY ONLY):', window.SHOPIFY_CHATBOT_CONFIG);
+  console.log('🤖 Chatbot Config (FULL PROXY URLs):', window.SHOPIFY_CHATBOT_CONFIG);
   console.log('🏪 Shop Domain:', window.SHOP_DOMAIN);
-  console.log('⚠️ All API calls MUST use proxy URLs to avoid CORS errors');
+  console.log('✅ All API calls use full proxy URLs - no CORS errors expected');
 </script>
 <script src="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.js"></script>
 <link rel="stylesheet" href="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.css"> 
