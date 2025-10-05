@@ -1,25 +1,24 @@
 <div id="chatbot-widget"></div>
 <script>
-  // Force all API calls through CORS proxy - no direct external API calls
+  // Simple working configuration - back to basics
   window.SHOPIFY_CHATBOT_CONFIG = {
     shop_domain: "{{ shop.permanent_domain }}",
     shop_name: "{{ shop.name }}",
     shop_id: {{ shop.id }},
     shop_currency: "{{ shop.currency }}",
     shop_timezone: "{{ shop.timezone }}",
-    // Updated to use full app proxy URLs - all calls go through your deployed app
+    // Use relative URLs but redirect through our app proxy
     api_endpoints: {
-      chat: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/chat",
-      recommendations: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/recommendations", 
-      abandoned_cart_discount: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/abandoned-cart-discount",
-      session: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/session",
-      customer_update: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/customer/update",
-      widget_config: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/widget-config",
-      widget_settings: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/widget-settings"
+      chat: "/a/jarvis/chat",
+      recommendations: "/a/jarvis/recommendations", 
+      abandoned_cart_discount: "/a/jarvis/abandoned-cart-discount",
+      session: "/a/jarvis/session",
+      customer_update: "/a/jarvis/customer/update",
+      widget_config: "/a/jarvis/widget-config",
+      widget_settings: "/a/jarvis/widget-settings"
     },
-    // Use app proxy for all API calls (no CORS issues)
     use_proxy: true,
-    proxy_base_url: "https://jarvis2-0-djg1.onrender.com" // Use your app's domain for proxy calls
+    proxy_base_url: "https://jarvis2-0-djg1.onrender.com" // Point to our app
   };
   
   // Set global shop domain for backward compatibility
@@ -29,72 +28,9 @@
   window.Shopify = window.Shopify || {};
   window.Shopify.shop = "{{ shop.permanent_domain }}";
   
-  // Debug: Log the configuration for troubleshooting
-  console.log('🤖 Chatbot Config (FULL PROXY URLs):', window.SHOPIFY_CHATBOT_CONFIG);
+  // Debug: Log the configuration
+  console.log('🤖 Chatbot Config:', window.SHOPIFY_CHATBOT_CONFIG);
   console.log('🏪 Shop Domain:', window.SHOP_DOMAIN);
-  console.log('✅ All API calls use full proxy URLs - no CORS errors expected');
-  
-  // CRITICAL FIX: Override widget's API URLs after it loads
-  window.addEventListener('load', function() {
-    setTimeout(function() {
-      // Force override the widget's API_URLS if it exists
-      if (window.API_URLS) {
-        console.log('🔧 Original API_URLS:', window.API_URLS);
-        window.API_URLS = {
-          chat: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/chat",
-          session: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/session",
-          customer_update: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/customer/update",
-          recommendations: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/recommendations",
-          abandoned_cart_discount: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/abandoned-cart-discount"
-        };
-        console.log('🔧 Overridden API_URLS:', window.API_URLS);
-      }
-      
-      // Also override the getApiUrls function if it exists
-      if (typeof window.getApiUrls === 'function') {
-        window.getApiUrls = function() {
-          return {
-            chat: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/chat",
-            session: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/session",
-            customer_update: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/customer/update",
-            recommendations: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/recommendations",
-            abandoned_cart_discount: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/abandoned-cart-discount"
-          };
-        };
-        console.log('🔧 Overridden getApiUrls function');
-      }
-      
-      // Force regenerate API_URLS if the widget has this capability
-      if (typeof window.updateApiUrls === 'function') {
-        window.updateApiUrls(window.SHOPIFY_CHATBOT_CONFIG.api_endpoints);
-        console.log('🔧 Called updateApiUrls with config');
-      }
-      
-    }, 1000); // Wait 1 second for widget to initialize
-  });
-  
-  // AGGRESSIVE FIX: Intercept fetch calls and redirect proxy URLs
-  (function() {
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options) {
-      // If it's a relative proxy URL, convert to full URL
-      if (typeof url === 'string' && url.startsWith('/a/jarvis')) {
-        const newUrl = 'https://jarvis2-0-djg1.onrender.com' + url.replace('/a/jarvis', '/a/jarvis-proxy');
-        console.log('🔄 Redirecting API call:', url, '→', newUrl);
-        return originalFetch(newUrl, options);
-      }
-      
-      // If it's trying to call the shop domain for proxy, redirect
-      if (typeof url === 'string' && url.includes('{{ shop.permanent_domain }}') && url.includes('/a/jarvis')) {
-        const newUrl = url.replace('https://{{ shop.permanent_domain }}', 'https://jarvis2-0-djg1.onrender.com').replace('/a/jarvis', '/a/jarvis-proxy');
-        console.log('🔄 Redirecting shop domain call:', url, '→', newUrl);
-        return originalFetch(newUrl, options);
-      }
-      
-      return originalFetch(url, options);
-    };
-    console.log('🛡️ Fetch interceptor installed to fix proxy URLs');
-  })();
 </script>
 <script src="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.js"></script>
 <link rel="stylesheet" href="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.css"> 
