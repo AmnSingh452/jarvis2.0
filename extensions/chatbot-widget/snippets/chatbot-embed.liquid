@@ -1,36 +1,37 @@
 <div id="chatbot-widget"></div>
 <script>
-  // Simple working configuration - back to basics
+  // WORKING CONFIGURATION - Direct API calls (bypassing app proxy)
   window.SHOPIFY_CHATBOT_CONFIG = {
     shop_domain: "{{ shop.permanent_domain }}",
     shop_name: "{{ shop.name }}",
     shop_id: {{ shop.id }},
     shop_currency: "{{ shop.currency }}",
     shop_timezone: "{{ shop.timezone }}",
-    // Use relative URLs but redirect through our app proxy
+    // CRITICAL: All API calls go directly to Remix API routes (not app proxy)
     api_endpoints: {
-      chat: "/a/jarvis/chat",
-      recommendations: "/a/jarvis/recommendations", 
-      abandoned_cart_discount: "/a/jarvis/abandoned-cart-discount",
-      session: "/a/jarvis/session",
-      customer_update: "/a/jarvis/customer/update",
-      widget_config: "/a/jarvis/widget-config",
-      widget_settings: "/a/jarvis/widget-settings"
+      chat: "https://jarvis2-0-djg1.onrender.com/api/chat",
+      recommendations: "https://jarvis2-0-djg1.onrender.com/api/recommendations",
+      abandoned_cart_discount: "https://jarvis2-0-djg1.onrender.com/api/abandoned-cart-discount",
+      session: "https://jarvis2-0-djg1.onrender.com/api/session",
+      customer_update: "https://jarvis2-0-djg1.onrender.com/api/customer/update",
+      widget_config: "https://jarvis2-0-djg1.onrender.com/api/widget-config"
     },
+    // Force proxy usage
     use_proxy: true,
-    proxy_base_url: "https://jarvis2-0-djg1.onrender.com" // Point to our app
+    proxy_base_url: "https://jarvis2-0-djg1.onrender.com"
   };
-  
+
   // Set global shop domain for backward compatibility
   window.SHOP_DOMAIN = "{{ shop.permanent_domain }}";
-  
+
   // Shopify object for additional compatibility
   window.Shopify = window.Shopify || {};
   window.Shopify.shop = "{{ shop.permanent_domain }}";
-  
-  // Debug: Log the configuration
-  console.log('🤖 Chatbot Config:', window.SHOPIFY_CHATBOT_CONFIG);
+
+  // Debug: Log the configuration for troubleshooting
+  console.log('🤖 Chatbot Config (DIRECT API CALLS):', window.SHOPIFY_CHATBOT_CONFIG);
   console.log('🏪 Shop Domain:', window.SHOP_DOMAIN);
+  console.log('✅ All API calls go directly to Remix API routes');
 </script>
 <script src="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.js"></script>
 <link rel="stylesheet" href="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.css"> 
