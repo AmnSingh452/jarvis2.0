@@ -33,6 +33,68 @@
   console.log('🤖 Chatbot Config (FULL PROXY URLs):', window.SHOPIFY_CHATBOT_CONFIG);
   console.log('🏪 Shop Domain:', window.SHOP_DOMAIN);
   console.log('✅ All API calls use full proxy URLs - no CORS errors expected');
+  
+  // CRITICAL FIX: Override widget's API URLs after it loads
+  window.addEventListener('load', function() {
+    setTimeout(function() {
+      // Force override the widget's API_URLS if it exists
+      if (window.API_URLS) {
+        console.log('🔧 Original API_URLS:', window.API_URLS);
+        window.API_URLS = {
+          chat: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/chat",
+          session: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/session",
+          customer_update: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/customer/update",
+          recommendations: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/recommendations",
+          abandoned_cart_discount: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/abandoned-cart-discount"
+        };
+        console.log('🔧 Overridden API_URLS:', window.API_URLS);
+      }
+      
+      // Also override the getApiUrls function if it exists
+      if (typeof window.getApiUrls === 'function') {
+        window.getApiUrls = function() {
+          return {
+            chat: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/chat",
+            session: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/session",
+            customer_update: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/customer/update",
+            recommendations: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/recommendations",
+            abandoned_cart_discount: "https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/abandoned-cart-discount"
+          };
+        };
+        console.log('🔧 Overridden getApiUrls function');
+      }
+      
+      // Force regenerate API_URLS if the widget has this capability
+      if (typeof window.updateApiUrls === 'function') {
+        window.updateApiUrls(window.SHOPIFY_CHATBOT_CONFIG.api_endpoints);
+        console.log('🔧 Called updateApiUrls with config');
+      }
+      
+    }, 1000); // Wait 1 second for widget to initialize
+  });
+  
+  // AGGRESSIVE FIX: Intercept fetch calls and redirect proxy URLs
+  (function() {
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+      // If it's a relative proxy URL, convert to full URL
+      if (typeof url === 'string' && url.startsWith('/a/jarvis')) {
+        const newUrl = 'https://jarvis2-0-djg1.onrender.com' + url.replace('/a/jarvis', '/a/jarvis-proxy');
+        console.log('🔄 Redirecting API call:', url, '→', newUrl);
+        return originalFetch(newUrl, options);
+      }
+      
+      // If it's trying to call the shop domain for proxy, redirect
+      if (typeof url === 'string' && url.includes('{{ shop.permanent_domain }}') && url.includes('/a/jarvis')) {
+        const newUrl = url.replace('https://{{ shop.permanent_domain }}', 'https://jarvis2-0-djg1.onrender.com').replace('/a/jarvis', '/a/jarvis-proxy');
+        console.log('🔄 Redirecting shop domain call:', url, '→', newUrl);
+        return originalFetch(newUrl, options);
+      }
+      
+      return originalFetch(url, options);
+    };
+    console.log('🛡️ Fetch interceptor installed to fix proxy URLs');
+  })();
 </script>
 <script src="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.js"></script>
 <link rel="stylesheet" href="https://widget-frontend-6mo6.onrender.com/shopify_chatbot_widget.css"> 
