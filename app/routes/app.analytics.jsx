@@ -184,42 +184,6 @@ export default function Analytics() {
                       </BlockStack>
                     </Card>
                   </Grid.Cell>
-                  
-                  <Grid.Cell columnSpan={{xs: 6, sm: 3, md: 2, lg: 2, xl: 2}}>
-                    <Card>
-                      <BlockStack gap="200">
-                        <Text variant="bodyMd" color="subdued">Customer Satisfaction</Text>
-                        <Text variant="heading2xl">{analyticsData?.overview?.customerSatisfaction || "0"}/5</Text>
-                        {analyticsData?.overview?.customerSatisfaction >= 4.0 && (
-                          <Badge status="success">High satisfaction</Badge>
-                        )}
-                      </BlockStack>
-                    </Card>
-                  </Grid.Cell>
-                  
-                  <Grid.Cell columnSpan={{xs: 6, sm: 3, md: 2, lg: 2, xl: 2}}>
-                    <Card>
-                      <BlockStack gap="200">
-                        <Text variant="bodyMd" color="subdued">Conversions</Text>
-                        <Text variant="heading2xl">{analyticsData?.overview?.conversionsGenerated || "0"}</Text>
-                        {analyticsData?.overview?.conversionsGenerated > 0 && (
-                          <Badge status="success">Converting</Badge>
-                        )}
-                      </BlockStack>
-                    </Card>
-                  </Grid.Cell>
-                  
-                  <Grid.Cell columnSpan={{xs: 6, sm: 3, md: 2, lg: 2, xl: 2}}>
-                    <Card>
-                      <BlockStack gap="200">
-                        <Text variant="bodyMd" color="subdued">Revenue Generated</Text>
-                        <Text variant="heading2xl">${analyticsData?.overview?.revenueGenerated || "0"}</Text>
-                        {analyticsData?.overview?.revenueGenerated > 0 && (
-                          <Badge status="success">Revenue active</Badge>
-                        )}
-                      </BlockStack>
-                    </Card>
-                  </Grid.Cell>
                 </Grid>
               </BlockStack>
             </Card>
@@ -235,36 +199,14 @@ export default function Analytics() {
                           <strong>Engagement:</strong> You have {analyticsData.overview.totalConversations} total conversations with a {analyticsData.overview.responseRate}% response rate.
                         </List.Item>
                         <List.Item>
-                          <strong>Performance:</strong> Average response time is {analyticsData.overview.avgResponseTime} seconds with {analyticsData.overview.customerSatisfaction}/5 satisfaction.
+                          <strong>Performance:</strong> Average response time is {analyticsData.overview.avgResponseTime} seconds.
                         </List.Item>
-                        {analyticsData.overview.conversionsGenerated > 0 && (
-                          <List.Item>
-                            <strong>Conversions:</strong> {analyticsData.overview.conversionsGenerated} conversions generated ${analyticsData.overview.revenueGenerated} in revenue.
-                          </List.Item>
-                        )}
                       </List>
                     ) : (
                       <Text variant="bodyMd">
                         Start getting customer interactions to see AI-powered insights and recommendations here.
                       </Text>
                     )}
-                    
-                    <Divider />
-                    
-                    <BlockStack gap="200">
-                      <Text variant="bodyMd" tone="success">
-                        <strong>🚀 Revenue Impact</strong>
-                      </Text>
-                      {analyticsData && analyticsData.overview.revenueGenerated > 0 ? (
-                        <Text variant="bodySm">
-                          Your chatbot generated <strong>${analyticsData.overview.revenueGenerated}</strong> in revenue this period.
-                        </Text>
-                      ) : (
-                        <Text variant="bodySm">
-                          Revenue tracking will appear here once customers start making purchases through chatbot interactions.
-                        </Text>
-                      )}
-                    </BlockStack>
                   </BlockStack>
                 </Card>
               </Grid.Cell>
@@ -283,12 +225,6 @@ export default function Analytics() {
                           <Text variant="bodyMd">Response Rate</Text>
                           <Badge status="success">{analyticsData.overview.responseRate}%</Badge>
                         </InlineStack>
-                        {analyticsData.overview.conversionsGenerated > 0 && (
-                          <InlineStack align="space-between">
-                            <Text variant="bodyMd">Conversion Rate</Text>
-                            <Badge status="success">{((analyticsData.overview.conversionsGenerated / analyticsData.overview.totalConversations) * 100).toFixed(1)}%</Badge>
-                          </InlineStack>
-                        )}
                       </BlockStack>
                     ) : (
                       <Text variant="bodyMd">
@@ -302,25 +238,18 @@ export default function Analytics() {
                       <Text variant="bodyMd" tone="success">
                         <strong>🎖️ Performance Rating</strong>
                       </Text>
-                      {analyticsData && analyticsData.overview.customerSatisfaction >= 4.0 ? (
+                      {analyticsData && analyticsData.overview.totalConversations > 0 ? (
                         <>
-                          <Text variant="headingLg">Excellent</Text>
+                          <Text variant="headingLg">Active</Text>
                           <Text variant="bodySm">
-                            Customer satisfaction rating of {analyticsData.overview.customerSatisfaction}/5 indicates strong performance.
-                          </Text>
-                        </>
-                      ) : analyticsData && analyticsData.overview.customerSatisfaction >= 3.0 ? (
-                        <>
-                          <Text variant="headingLg">Good</Text>
-                          <Text variant="bodySm">
-                            Customer satisfaction rating of {analyticsData.overview.customerSatisfaction}/5 shows room for improvement.
+                            Your chatbot is actively handling conversations with a {analyticsData.overview.responseRate}% response rate.
                           </Text>
                         </>
                       ) : (
                         <>
                           <Text variant="headingLg">Getting Started</Text>
                           <Text variant="bodySm">
-                            Performance rating will appear here based on customer feedback and satisfaction scores.
+                            Performance rating will appear here based on conversation metrics and response times.
                           </Text>
                         </>
                       )}
@@ -343,11 +272,6 @@ export default function Analytics() {
                           <strong>Engagement:</strong> {analyticsData.overview.responseRate > 80 ? "Excellent engagement rate! " : "Work on improving response rate. "}
                           Current rate: {analyticsData.overview.responseRate}%
                         </List.Item>
-                        {analyticsData.overview.conversionsGenerated > 0 && (
-                          <List.Item>
-                            <strong>Conversions:</strong> You're successfully converting {((analyticsData.overview.conversionsGenerated / analyticsData.overview.totalConversations) * 100).toFixed(1)}% of conversations.
-                          </List.Item>
-                        )}
                       </List>
                     ) : (
                       <Text variant="bodyMd">
