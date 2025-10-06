@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis Widget Test - Correct URL Configuration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        code {
+            background-color: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .console-log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Jarvis Widget Configuration Test</h1>
+    
+    <div class="test-container">
+        <h2>Widget Configuration Status</h2>
+        <div id="config-status" class="status info">Loading configuration...</div>
+        <div id="config-details" class="console-log"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>API Endpoint Tests</h2>
+        <div id="api-tests"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Integration Instructions</h2>
+        <p>To fix the widget 404 errors, include the configuration loader BEFORE your widget script:</p>
+        <code>&lt;script src="https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/widget-init.js"&gt;&lt;/script&gt;</code>
+        <br><br>
+        <p>Then your widget script (with any URL overrides automatically applied):</p>
+        <code>&lt;script src="your-widget-script.js"&gt;&lt;/script&gt;</code>
+    </div>
+
+    <!-- Load the configuration first -->
+    <script src="https://jarvis2-0-djg1.onrender.com/a/jarvis-proxy/widget-init.js"></script>
+    
+    <script>
+        // Test the configuration loading
+        async function testConfiguration() {
+            const statusDiv = document.getElementById('config-status');
+            const detailsDiv = document.getElementById('config-details');
+            const testsDiv = document.getElementById('api-tests');
+            
+            let logs = '';
+            
+            try {
+                // Wait for configuration to load
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                if (window.JarvisWidgetConfig) {
+                    const config = window.JarvisWidgetConfig.get();
+                    
+                    if (config) {
+                        statusDiv.className = 'status success';
+                        statusDiv.textContent = '✅ Configuration loaded successfully!';
+                        
+                        logs += 'Widget Configuration:\n';
+                        logs += JSON.stringify(config, null, 2) + '\n\n';
+                        
+                        // Test API endpoints
+                        const endpoints = ['chat', 'session', 'recommendations', 'abandoned_cart_discount'];
+                        let testResults = '';
+                        
+                        for (const endpoint of endpoints) {
+                            const url = window.JarvisWidgetConfig.getApiUrl(endpoint);
+                            testResults += `<div class="status info">
+                                <strong>${endpoint}:</strong> <code>${url}</code>
+                            </div>`;
+                            
+                            logs += `${endpoint}: ${url}\n`;
+                        }
+                        
+                        testsDiv.innerHTML = testResults;
+                        
+                        // Test fetch override
+                        logs += '\nTesting fetch override:\n';
+                        logs += 'Original relative URL: /a/jarvis-proxy/chat\n';
+                        logs += 'Will be redirected to: ' + window.JarvisWidgetConfig.getApiUrl('chat') + '\n';
+                        
+                    } else {
+                        statusDiv.className = 'status warning';
+                        statusDiv.textContent = '⚠️ Configuration object is null - check network/CORS';
+                        logs += 'Configuration is null - check browser console for errors\n';
+                    }
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '❌ JarvisWidgetConfig not available';
+                    logs += 'JarvisWidgetConfig not found on window object\n';
+                }
+                
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Error loading configuration: ' + error.message;
+                logs += 'Error: ' + error.message + '\n';
+            }
+            
+            detailsDiv.textContent = logs;
+        }
+        
+        // Start test when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(testConfiguration, 1000);
+        });
+        
+        // Override console.log to capture widget logs
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const detailsDiv = document.getElementById('config-details');
+            if (detailsDiv && args[0] && typeof args[0] === 'string' && args[0].includes('🎯')) {
+                detailsDiv.textContent += args.join(' ') + '\n';
+            }
+        };
+    </script>
+</body>
+</html>
