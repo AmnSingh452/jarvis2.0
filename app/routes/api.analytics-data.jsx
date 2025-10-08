@@ -158,24 +158,35 @@ export async function loader({ request }) {
 
     const messagesPerSession = totalConversations > 0 ? (totalMessages / totalConversations) : 0;
 
-    // Calculate returning visitors (users with multiple conversations)
-    const returningVisitorsCount = await prisma.chatConversation.groupBy({
-      by: ['customerName', 'customerEmail'],
+    // Calculate returning visitors (users with multiple conversations based on customerName and customerIp)
+    const conversationsWithCustomerInfo = await prisma.chatConversation.findMany({
       where: {
         shopDomain,
-        startTime: { gte: startDate }
+        startTime: { gte: startDate },
+        OR: [
+          { customerName: { not: null } },
+          { customerIp: { not: null } }
+        ]
       },
-      having: {
-        id: {
-          _count: {
-            gt: 1
-          }
-        }
+      select: {
+        customerName: true,
+        customerIp: true
       }
     });
 
-    const returningVisitorsPercentage = totalUniqueVisitors > 0 
-      ? ((returningVisitorsCount.length / totalUniqueVisitors) * 100) 
+    // Group by customer identifier and count conversations per customer
+    const customerGroups = {};
+    conversationsWithCustomerInfo.forEach(conv => {
+      const key = conv.customerName || conv.customerIp || 'anonymous';
+      customerGroups[key] = (customerGroups[key] || 0) + 1;
+    });
+
+    // Count customers with more than 1 conversation
+    const returningCustomers = Object.values(customerGroups).filter(count => count > 1).length;
+    const totalCustomersWithInfo = Object.keys(customerGroups).length;
+    
+    const returningVisitorsPercentage = totalCustomersWithInfo > 0 
+      ? ((returningCustomers / totalCustomersWithInfo) * 100) 
       : 0;
 
     // Get top questions from analytics metrics (aggregated from all daily metrics)
