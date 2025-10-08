@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { prisma } from "../db.server.js";
+import prisma from "../db.server.js";
 
 export async function loader({ request }) {
   const url = new URL(request.url);
