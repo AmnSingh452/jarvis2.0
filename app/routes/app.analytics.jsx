@@ -238,11 +238,14 @@ export default function Analytics() {
                           <BlockStack gap="200">
                             <InlineStack align="space-between">
                               <Text variant="bodyMd">Last 24 hours</Text>
-                              <Badge status="info">{Math.floor((analyticsData.overview.totalConversations || 0) * 0.3)} conversations</Badge>
+                              <Badge status="info">{analyticsData.overview.conversationsLast24h || 0} conversations</Badge>
                             </InlineStack>
                             <InlineStack align="space-between">
                               <Text variant="bodyMd">Peak hours</Text>
-                              <Badge>9 AM - 5 PM</Badge>
+                              <Badge>
+                                {analyticsData.overview.conversationsLast24h > 5 ? "High activity" : 
+                                 analyticsData.overview.conversationsLast24h > 0 ? "Moderate activity" : "Low activity"}
+                              </Badge>
                             </InlineStack>
                             <InlineStack align="space-between">
                               <Text variant="bodyMd">Active now</Text>
@@ -266,11 +269,11 @@ export default function Analytics() {
                           <BlockStack gap="200">
                             <InlineStack align="space-between">
                               <Text variant="bodyMd">Returning visitors</Text>
-                              <Badge status="success">{Math.floor((analyticsData.overview.uniqueVisitors || 0) * 0.4)}%</Badge>
+                              <Badge status="success">{analyticsData.overview.returningVisitorsPercentage || 0}%</Badge>
                             </InlineStack>
                             <InlineStack align="space-between">
                               <Text variant="bodyMd">Avg messages per session</Text>
-                              <Badge>{Math.floor(((analyticsData.overview.totalConversations || 0) / (analyticsData.overview.uniqueVisitors || 1)) * 2.5)}</Badge>
+                              <Badge>{analyticsData.overview.messagesPerSession || 0}</Badge>
                             </InlineStack>
                             <InlineStack align="space-between">
                               <Text variant="bodyMd">User satisfaction</Text>
@@ -322,7 +325,7 @@ export default function Analytics() {
                                 'Improve response rate by adding more training data or FAQs.'}
                             </List.Item>
                             <List.Item>
-                              {analyticsData.overview.avgSessionDuration > 3 ? 
+                              {parseFloat(analyticsData.overview.avgSessionDuration) > 3 ? 
                                 'Great engagement! Users are having meaningful conversations.' :
                                 'Boost engagement with more interactive conversation flows.'}
                             </List.Item>
@@ -366,7 +369,7 @@ export default function Analytics() {
                         </InlineStack>
                         <InlineStack align="space-between">
                           <Text variant="bodyMd">Session Duration</Text>
-                          <Badge status={analyticsData.overview.avgSessionDuration > 3 ? "success" : "attention"}>
+                          <Badge status={parseFloat(analyticsData.overview.avgSessionDuration) > 3 ? "success" : "attention"}>
                             {analyticsData.overview.avgSessionDuration || 0}min
                           </Badge>
                         </InlineStack>
@@ -437,7 +440,7 @@ export default function Analytics() {
                             Current rate: {analyticsData.overview.responseRate}%
                           </List.Item>
                           <List.Item>
-                            <strong>Session Quality:</strong> {analyticsData.overview.avgSessionDuration > 3 ? "Users are highly engaged! " : "Try to increase conversation depth. "}
+                            <strong>Session Quality:</strong> {parseFloat(analyticsData.overview.avgSessionDuration) > 3 ? "Users are highly engaged! " : "Try to increase conversation depth. "}
                             Average duration: {analyticsData.overview.avgSessionDuration}min
                           </List.Item>
                         </List>

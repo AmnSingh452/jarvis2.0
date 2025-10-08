@@ -96,6 +96,88 @@ export async function loader({ request }) {
       .filter(day => day.customerSatisfaction)
       .reduce((sum, day, _, arr) => sum + day.customerSatisfaction / arr.length, 0);
 
+    // Calculate recent activity metrics
+    const last24Hours = new Date();
+    last24Hours.setHours(last24Hours.getHours() - 24);
+    
+    const conversationsLast24h = await prisma.chatConversation.count({
+      where: {
+        shopDomain,
+        startTime: {
+          gte: last24Hours
+        }
+      }
+    });
+
+    // Get active sessions (conversations started in last hour that haven't ended)
+    const lastHour = new Date();
+    lastHour.setHours(lastHour.getHours() - 1);
+    
+    const activeSessions = await prisma.chatConversation.count({
+      where: {
+        shopDomain,
+        startTime: {
+          gte: lastHour
+        },
+        OR: [
+          { endTime: null },
+          { endTime: { gte: lastHour } }
+        ]
+      }
+    });
+
+    // Calculate average session duration from completed conversations
+    const completedConversations = await prisma.chatConversation.findMany({
+      where: {
+        shopDomain,
+        endTime: { not: null },
+        startTime: { gte: startDate }
+      },
+      select: {
+        startTime: true,
+        endTime: true
+      }
+    });
+
+    const avgSessionDuration = completedConversations.length > 0 
+      ? completedConversations.reduce((sum, conv) => {
+          const duration = (new Date(conv.endTime) - new Date(conv.startTime)) / (1000 * 60); // minutes
+          return sum + duration;
+        }, 0) / completedConversations.length
+      : 0;
+
+    // Calculate messages per session
+    const totalMessages = await prisma.chatMessage.count({
+      where: {
+        conversation: {
+          shopDomain,
+          startTime: { gte: startDate }
+        }
+      }
+    });
+
+    const messagesPerSession = totalConversations > 0 ? (totalMessages / totalConversations) : 0;
+
+    // Calculate returning visitors (users with multiple conversations)
+    const returningVisitorsCount = await prisma.chatConversation.groupBy({
+      by: ['customerName', 'customerEmail'],
+      where: {
+        shopDomain,
+        startTime: { gte: startDate }
+      },
+      having: {
+        id: {
+          _count: {
+            gt: 1
+          }
+        }
+      }
+    });
+
+    const returningVisitorsPercentage = totalUniqueVisitors > 0 
+      ? ((returningVisitorsCount.length / totalUniqueVisitors) * 100) 
+      : 0;
+
     // Get top questions from analytics metrics (aggregated from all daily metrics)
     const allTopQuestions = [];
     dailyMetrics.forEach(metric => {
@@ -123,7 +205,13 @@ export async function loader({ request }) {
         avgResponseTime: avgResponseTime > 0 ? avgResponseTime.toFixed(1) : "N/A",
         customerSatisfaction: avgSatisfaction > 0 ? avgSatisfaction.toFixed(1) : "N/A",
         conversionsGenerated: totalConversions,
-        revenueGenerated: totalRevenue.toFixed(2)
+        revenueGenerated: totalRevenue.toFixed(2),
+        // New fields for enhanced analytics
+        activeSessions,
+        avgSessionDuration: avgSessionDuration.toFixed(1),
+        conversationsLast24h,
+        messagesPerSession: messagesPerSession.toFixed(1),
+        returningVisitorsPercentage: returningVisitorsPercentage.toFixed(1)
       },
       timeData: dailyMetrics.map(day => ({
         date: day.date.toISOString().split('T')[0],
