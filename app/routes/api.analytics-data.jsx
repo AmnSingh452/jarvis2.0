@@ -312,7 +312,13 @@ export async function loader({ request }) {
         usagePercentage: planUsage.usagePercentage,
         isUnlimited: planUsage.isUnlimited,
         allowed: planUsage.allowed,
-        monthStart: planUsage.monthStart
+        monthStart: planUsage.monthStart,
+        // Add trial-specific fields
+        isTrial: planUsage.isTrial || false,
+        trialExpired: planUsage.trialExpired || false,
+        trialDaysRemaining: planUsage.trialDaysRemaining || 0,
+        trialEndDate: planUsage.trialEndDate || null,
+        daysInTrial: planUsage.daysInTrial || 0
       },
       timeData: dailyMetrics.map(day => ({
         date: day.date.toISOString().split('T')[0],
