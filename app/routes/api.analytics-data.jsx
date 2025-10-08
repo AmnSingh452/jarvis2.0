@@ -23,6 +23,31 @@ async function checkConversationLimit(shopDomain, prisma) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     
+    // Get shop installation info to check trial period
+    const shop = await prisma.shop.findUnique({
+      where: { shopDomain }
+    });
+
+    if (!shop) {
+      return { 
+        allowed: false, 
+        reason: "Shop not found",
+        used: 0,
+        limit: 0,
+        remaining: 0,
+        planName: "No Plan",
+        usagePercentage: 0,
+        isTrial: false,
+        trialExpired: false
+      };
+    }
+
+    // Calculate trial period (14 days from installation)
+    const trialEndDate = new Date(shop.installedAt);
+    trialEndDate.setDate(trialEndDate.getDate() + 14);
+    const isInTrialPeriod = now <= trialEndDate;
+    const trialExpired = now > trialEndDate;
+
     // Get shop's active subscription plan
     const subscription = await prisma.subscription.findFirst({
       where: { 
@@ -34,49 +59,99 @@ async function checkConversationLimit(shopDomain, prisma) {
       }
     });
 
-    if (!subscription) {
+    // If no subscription and trial expired, block access
+    if (!subscription && trialExpired) {
       return { 
         allowed: false, 
-        reason: "No active subscription",
+        reason: "Trial period expired, subscription required",
         used: 0,
         limit: 0,
         remaining: 0,
-        planName: "No Plan",
-        usagePercentage: 0
+        planName: "Trial Expired",
+        usagePercentage: 0,
+        isTrial: false,
+        trialExpired: true,
+        trialEndDate: trialEndDate.toISOString(),
+        daysInTrial: Math.floor((now - shop.installedAt) / (1000 * 60 * 60 * 24))
       };
     }
 
-    // Count conversations this month
-    const monthlyConversations = await prisma.chatConversation.count({
-      where: {
-        shopDomain,
-        startTime: { 
-          gte: monthStart 
+    // If no subscription but still in trial, allow unlimited access during trial
+    if (!subscription && isInTrialPeriod) {
+      const monthlyConversations = await prisma.chatConversation.count({
+        where: {
+          shopDomain,
+          startTime: { gte: monthStart }
         }
-      }
-    });
+      });
 
-    // Define plan limits based on your requirements
-    const planLimits = {
-      'essential': 1000,      // Essential plan: 1,000 conversations/month
-      'sales_pro': -1,        // Sales Pro plan: Unlimited
-      'pro': -1,              // Alternative name for Sales Pro
-      'sales pro': -1         // Handle space in name
-    };
+      const trialDaysRemaining = Math.ceil((trialEndDate - now) / (1000 * 60 * 60 * 24));
 
-    const planName = subscription.plan.name.toLowerCase();
-    const limit = planLimits[planName] || 1000; // Default to Essential limits if plan not found
-    const isUnlimited = limit === -1;
-    
-    return {
-      allowed: isUnlimited || monthlyConversations < limit,
-      used: monthlyConversations,
-      limit: isUnlimited ? "Unlimited" : limit,
-      remaining: isUnlimited ? "Unlimited" : Math.max(0, limit - monthlyConversations),
-      planName: subscription.plan.name,
-      monthStart: monthStart.toISOString(),
-      usagePercentage: isUnlimited ? 0 : ((monthlyConversations / limit) * 100).toFixed(1),
-      isUnlimited: isUnlimited
+      return { 
+        allowed: true, 
+        reason: "Free trial period",
+        used: monthlyConversations,
+        limit: "Unlimited (Trial)",
+        remaining: "Unlimited",
+        planName: "14-Day Free Trial",
+        usagePercentage: 0,
+        isTrial: true,
+        trialExpired: false,
+        trialEndDate: trialEndDate.toISOString(),
+        trialDaysRemaining: trialDaysRemaining,
+        daysInTrial: Math.floor((now - shop.installedAt) / (1000 * 60 * 60 * 24))
+      };
+    }
+
+    // If we have an active subscription, check plan limits
+    if (subscription) {
+      // Count conversations this month
+      const monthlyConversations = await prisma.chatConversation.count({
+        where: {
+          shopDomain,
+          startTime: { 
+            gte: monthStart 
+          }
+        }
+      });
+
+      // Define plan limits based on your requirements
+      const planLimits = {
+        'essential': 1000,      // Essential plan: 1,000 conversations/month
+        'sales_pro': -1,        // Sales Pro plan: Unlimited
+        'pro': -1,              // Alternative name for Sales Pro
+        'sales pro': -1         // Handle space in name
+      };
+
+      const planName = subscription.plan.name.toLowerCase();
+      const limit = planLimits[planName] || 1000; // Default to Essential limits if plan not found
+      const isUnlimited = limit === -1;
+      
+      return {
+        allowed: isUnlimited || monthlyConversations < limit,
+        used: monthlyConversations,
+        limit: isUnlimited ? "Unlimited" : limit,
+        remaining: isUnlimited ? "Unlimited" : Math.max(0, limit - monthlyConversations),
+        planName: subscription.plan.name,
+        monthStart: monthStart.toISOString(),
+        usagePercentage: isUnlimited ? 0 : ((monthlyConversations / limit) * 100).toFixed(1),
+        isUnlimited: isUnlimited,
+        isTrial: false,
+        trialExpired: false
+      };
+    }
+
+    // Fallback case
+    return { 
+      allowed: false, 
+      reason: "No valid subscription or trial",
+      used: 0,
+      limit: 0,
+      remaining: 0,
+      planName: "Unknown",
+      usagePercentage: 0,
+      isTrial: false,
+      trialExpired: false
     };
   } catch (error) {
     console.error("Error checking conversation limit:", error);
@@ -88,7 +163,9 @@ async function checkConversationLimit(shopDomain, prisma) {
       planName: "Unknown",
       error: error.message,
       usagePercentage: 0,
-      isUnlimited: false
+      isUnlimited: false,
+      isTrial: false,
+      trialExpired: false
     };
   }
 }
