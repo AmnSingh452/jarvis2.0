@@ -33,47 +33,99 @@ async function handleSubscriptionUpdate(shopDomain, payload) {
   try {
     const subscription = payload.app_subscription;
     
+    // Enhanced logging to debug the webhook payload
+    console.log(`Full subscription webhook payload for ${shopDomain}:`, JSON.stringify(payload, null, 2));
     console.log(`Subscription update for ${shopDomain}:`, {
       id: subscription.id,
       status: subscription.status,
-      name: subscription.name
+      name: subscription.name,
+      fullSubscriptionObject: subscription
     });
-    
-    // Update subscription status in database
-    await prisma.subscription.updateMany({
-      where: { 
-        shopDomain,
-        shopifySubscriptionId: subscription.id.toString()
-      },
-      data: {
-        status: subscription.status.toUpperCase(),
-        updatedAt: new Date()
+
+    // Handle case where subscription.id might be undefined
+    if (!subscription.id) {
+      console.warn(`Subscription ID is undefined for ${shopDomain}. Using alternative identification method.`);
+      
+      // Try to find subscription by shop domain and plan name
+      const existingSubscription = await prisma.subscription.findFirst({
+        where: { 
+          shopDomain,
+          status: 'ACTIVE'
+        }
+      });
+
+      if (existingSubscription) {
+        // Update existing subscription
+        await prisma.subscription.update({
+          where: { id: existingSubscription.id },
+          data: {
+            status: subscription.status ? subscription.status.toUpperCase() : 'ACTIVE',
+            updatedAt: new Date()
+          }
+        });
+        console.log(`Updated subscription ${existingSubscription.id} for ${shopDomain}`);
+      } else {
+        console.log(`No existing subscription found for ${shopDomain} to update`);
       }
-    });
+    } else {
+      // Normal flow with subscription ID
+      const subscriptionId = subscription.id.toString();
+      
+      // Update subscription status in database
+      await prisma.subscription.updateMany({
+        where: { 
+          shopDomain,
+          shopifySubscriptionId: subscriptionId
+        },
+        data: {
+          status: subscription.status ? subscription.status.toUpperCase() : 'ACTIVE',
+          updatedAt: new Date()
+        }
+      });
+    }
     
     // Handle specific status changes
-    if (subscription.status === 'cancelled') {
+    if (subscription.status === 'cancelled' || subscription.status === 'CANCELLED') {
       console.log(`Subscription cancelled for ${shopDomain}`);
       // You could send notification emails here
-    } else if (subscription.status === 'active') {
+    } else if (subscription.status === 'active' || subscription.status === 'ACTIVE') {
       console.log(`Subscription activated for ${shopDomain}`);
+      
       // Reset usage if it's a new billing cycle
       const currentPeriodStart = new Date();
       const currentPeriodEnd = new Date();
       currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
       
-      await prisma.subscription.updateMany({
-        where: { 
-          shopDomain,
-          shopifySubscriptionId: subscription.id.toString()
-        },
-        data: {
-          messagesUsed: 0, // Reset usage for new billing cycle
-          currentPeriodStart,
-          currentPeriodEnd,
-          updatedAt: new Date()
-        }
-      });
+      const subscriptionId = subscription.id ? subscription.id.toString() : null;
+      
+      if (subscriptionId) {
+        await prisma.subscription.updateMany({
+          where: { 
+            shopDomain,
+            shopifySubscriptionId: subscriptionId
+          },
+          data: {
+            messagesUsed: 0, // Reset usage for new billing cycle
+            currentPeriodStart,
+            currentPeriodEnd,
+            updatedAt: new Date()
+          }
+        });
+      } else {
+        // Update by shop domain if no subscription ID
+        await prisma.subscription.updateMany({
+          where: { 
+            shopDomain,
+            status: 'ACTIVE'
+          },
+          data: {
+            messagesUsed: 0,
+            currentPeriodStart,
+            currentPeriodEnd,
+            updatedAt: new Date()
+          }
+        });
+      }
     }
     
   } catch (error) {
