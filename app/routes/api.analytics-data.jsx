@@ -78,10 +78,11 @@ async function checkConversationLimit(shopDomain, prisma) {
 
     // If no subscription but still in trial, allow unlimited access during trial
     if (!subscription && isInTrialPeriod) {
-      const monthlyConversations = await prisma.chatConversation.count({
+      // During trial, count conversations from trial start (installation date), not month start
+      const trialConversations = await prisma.chatConversation.count({
         where: {
           shopDomain,
-          startTime: { gte: monthStart }
+          startTime: { gte: shop.installedAt }
         }
       });
 
@@ -90,7 +91,7 @@ async function checkConversationLimit(shopDomain, prisma) {
       return { 
         allowed: true, 
         reason: "Free trial period",
-        used: monthlyConversations,
+        used: trialConversations,
         limit: "Unlimited (Trial)",
         remaining: "Unlimited",
         planName: "14-Day Free Trial",
