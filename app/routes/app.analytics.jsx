@@ -147,6 +147,126 @@ export default function Analytics() {
                     onChange={setTimeRange}
                   />
                 </InlineStack>
+
+                {/* Plan Usage Section */}
+                {analyticsData?.planUsage && (
+                  <Card background="bg-surface-secondary">
+                    <BlockStack gap="300">
+                      <InlineStack align="space-between">
+                        <Text variant="headingMd">
+                          {analyticsData.planUsage.isTrial ? "🎁 Free Trial Status" : "📊 Plan Usage"}
+                        </Text>
+                        <Badge status={
+                          analyticsData.planUsage.trialExpired ? "critical" :
+                          analyticsData.planUsage.isTrial ? "info" :
+                          analyticsData.planUsage.isUnlimited ? "success" : "info"
+                        }>
+                          {analyticsData.planUsage.planName}
+                        </Badge>
+                      </InlineStack>
+                      
+                      {analyticsData.planUsage.trialExpired ? (
+                        <BlockStack gap="200">
+                          <Text variant="bodyMd" tone="critical">
+                            ⚠️ Your 14-day free trial has ended!
+                          </Text>
+                          <InlineStack align="space-between">
+                            <Text variant="bodyMd">Trial duration</Text>
+                            <Badge status="critical">{analyticsData.planUsage.daysInTrial} days used</Badge>
+                          </InlineStack>
+                          <Text variant="bodySm" color="subdued">
+                            Subscribe to continue using Jarvis AI chatbot. Choose Essential ($19/month) or Sales Pro ($49/month) to reactivate your widget.
+                          </Text>
+                          <Button variant="primary" url="/app/billing">
+                            Choose Your Plan
+                          </Button>
+                        </BlockStack>
+                      ) : analyticsData.planUsage.isTrial ? (
+                        <BlockStack gap="200">
+                          <InlineStack align="space-between">
+                            <Text variant="bodyMd">Days remaining</Text>
+                            <Badge status={analyticsData.planUsage.trialDaysRemaining <= 3 ? "warning" : "info"}>
+                              {analyticsData.planUsage.trialDaysRemaining} days left
+                            </Badge>
+                          </InlineStack>
+                          <InlineStack align="space-between">
+                            <Text variant="bodyMd">Conversations used</Text>
+                            <Badge status="success">{analyticsData.planUsage.conversationsUsed}</Badge>
+                          </InlineStack>
+                          <InlineStack align="space-between">
+                            <Text variant="bodyMd">Trial limit</Text>
+                            <Badge status="success">Unlimited</Badge>
+                          </InlineStack>
+                          <Text variant="bodySm" color="subdued">
+                            🎉 Enjoy unlimited conversations during your free trial! 
+                            {analyticsData.planUsage.trialDaysRemaining <= 3 && 
+                              " Your trial ends soon - choose a plan to continue."}
+                          </Text>
+                          {analyticsData.planUsage.trialDaysRemaining <= 7 && (
+                            <Button variant="primary" url="/app/billing">
+                              Subscribe Now & Save
+                            </Button>
+                          )}
+                        </BlockStack>
+                      ) : analyticsData.planUsage.isUnlimited ? (
+                        <BlockStack gap="200">
+                          <InlineStack align="space-between">
+                            <Text variant="bodyMd">Conversations this month</Text>
+                            <Badge status="success">{analyticsData.planUsage.conversationsUsed}</Badge>
+                          </InlineStack>
+                          <InlineStack align="space-between">
+                            <Text variant="bodyMd">Monthly limit</Text>
+                            <Badge status="success">Unlimited</Badge>
+                          </InlineStack>
+                          <Text variant="bodySm" color="subdued">
+                            🎉 You're on the Sales Pro plan with unlimited conversations!
+                          </Text>
+                        </BlockStack>
+                      ) : (
+                        <BlockStack gap="200">
+                          <InlineStack align="space-between">
+                            <Text variant="bodyMd">Conversations used</Text>
+                            <Badge status={analyticsData.planUsage.usagePercentage > 90 ? "critical" : 
+                                         analyticsData.planUsage.usagePercentage > 75 ? "warning" : "info"}>
+                              {analyticsData.planUsage.conversationsUsed} / {analyticsData.planUsage.conversationsLimit}
+                            </Badge>
+                          </InlineStack>
+                          <InlineStack align="space-between">
+                            <Text variant="bodyMd">Remaining</Text>
+                            <Badge status={analyticsData.planUsage.conversationsRemaining < 100 ? "warning" : "success"}>
+                              {analyticsData.planUsage.conversationsRemaining}
+                            </Badge>
+                          </InlineStack>
+                          <div style={{ width: '100%' }}>
+                            <Text variant="bodySm" color="subdued">Usage: {analyticsData.planUsage.usagePercentage}%</Text>
+                            <div style={{ 
+                              width: '100%', 
+                              backgroundColor: '#f0f0f0', 
+                              borderRadius: '4px', 
+                              height: '8px', 
+                              marginTop: '4px' 
+                            }}>
+                              <div style={{ 
+                                width: `${analyticsData.planUsage.usagePercentage}%`, 
+                                backgroundColor: analyticsData.planUsage.usagePercentage > 90 ? '#d73a49' : 
+                                                analyticsData.planUsage.usagePercentage > 75 ? '#f66a0a' : '#28a745',
+                                height: '100%', 
+                                borderRadius: '4px' 
+                              }} />
+                            </div>
+                          </div>
+                          {analyticsData.planUsage.usagePercentage > 85 && (
+                            <Text variant="bodySm" tone={analyticsData.planUsage.usagePercentage > 95 ? "critical" : "warning"}>
+                              {analyticsData.planUsage.usagePercentage > 95 ? 
+                                "⚠️ Almost at your monthly limit! Consider upgrading to Sales Pro for unlimited conversations." :
+                                "📈 You're using most of your monthly conversations. Upgrade to Sales Pro for unlimited access."}
+                            </Text>
+                          )}
+                        </BlockStack>
+                      )}
+                    </BlockStack>
+                  </Card>
+                )}
                 
                 <Grid>
                   <Grid.Cell columnSpan={{xs: 6, sm: 3, md: 2, lg: 2, xl: 2}}>

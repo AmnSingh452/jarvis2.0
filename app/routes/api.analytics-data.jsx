@@ -16,6 +16,83 @@ export async function options() {
   });
 }
 
+// Conversation limit checking function
+async function checkConversationLimit(shopDomain, prisma) {
+  try {
+    // Get current month's start
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    // Get shop's active subscription plan
+    const subscription = await prisma.subscription.findFirst({
+      where: { 
+        shopDomain, 
+        status: 'active' 
+      },
+      include: { 
+        plan: true 
+      }
+    });
+
+    if (!subscription) {
+      return { 
+        allowed: false, 
+        reason: "No active subscription",
+        used: 0,
+        limit: 0,
+        remaining: 0,
+        planName: "No Plan",
+        usagePercentage: 0
+      };
+    }
+
+    // Count conversations this month
+    const monthlyConversations = await prisma.chatConversation.count({
+      where: {
+        shopDomain,
+        startTime: { 
+          gte: monthStart 
+        }
+      }
+    });
+
+    // Define plan limits based on your requirements
+    const planLimits = {
+      'essential': 1000,      // Essential plan: 1,000 conversations/month
+      'sales_pro': -1,        // Sales Pro plan: Unlimited
+      'pro': -1,              // Alternative name for Sales Pro
+      'sales pro': -1         // Handle space in name
+    };
+
+    const planName = subscription.plan.name.toLowerCase();
+    const limit = planLimits[planName] || 1000; // Default to Essential limits if plan not found
+    const isUnlimited = limit === -1;
+    
+    return {
+      allowed: isUnlimited || monthlyConversations < limit,
+      used: monthlyConversations,
+      limit: isUnlimited ? "Unlimited" : limit,
+      remaining: isUnlimited ? "Unlimited" : Math.max(0, limit - monthlyConversations),
+      planName: subscription.plan.name,
+      monthStart: monthStart.toISOString(),
+      usagePercentage: isUnlimited ? 0 : ((monthlyConversations / limit) * 100).toFixed(1),
+      isUnlimited: isUnlimited
+    };
+  } catch (error) {
+    console.error("Error checking conversation limit:", error);
+    return { 
+      allowed: true, // Allow by default if there's an error
+      used: 0,
+      limit: "Unknown",
+      remaining: "Unknown",
+      planName: "Unknown",
+      error: error.message,
+      usagePercentage: 0,
+      isUnlimited: false
+    };
+  }
+}
+
 export async function loader({ request }) {
 
   try {
@@ -208,6 +285,9 @@ export async function loader({ request }) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
+    // Get plan usage information
+    const planUsage = await checkConversationLimit(shopDomain, prisma);
+
     const analytics = {
       overview: {
         totalConversations,
@@ -223,6 +303,16 @@ export async function loader({ request }) {
         conversationsLast24h,
         messagesPerSession: messagesPerSession.toFixed(1),
         returningVisitorsPercentage: returningVisitorsPercentage.toFixed(1)
+      },
+      planUsage: {
+        conversationsUsed: planUsage.used,
+        conversationsLimit: planUsage.limit,
+        conversationsRemaining: planUsage.remaining,
+        planName: planUsage.planName,
+        usagePercentage: planUsage.usagePercentage,
+        isUnlimited: planUsage.isUnlimited,
+        allowed: planUsage.allowed,
+        monthStart: planUsage.monthStart
       },
       timeData: dailyMetrics.map(day => ({
         date: day.date.toISOString().split('T')[0],

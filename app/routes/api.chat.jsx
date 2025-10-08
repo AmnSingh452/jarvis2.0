@@ -4,6 +4,28 @@ import { json } from "@remix-run/node";
 const chatCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Function to check conversation limits
+async function checkConversationLimit(shopDomain) {
+  try {
+    const response = await fetch(`https://jarvis2-0-djg1.onrender.com/api/conversation-limit?shop=${shopDomain}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      return await response.json();
+    } else {
+      console.error("Failed to check conversation limit:", response.status);
+      return { allowed: true }; // Allow by default if check fails
+    }
+  } catch (error) {
+    console.error("Error checking conversation limit:", error);
+    return { allowed: true }; // Allow by default if check fails
+  }
+}
+
 // Track analytics events
 async function trackAnalyticsEvents(payload, response) {
   try {
@@ -203,6 +225,49 @@ export async function action({ request }) {
     }
 
     console.log("🔎 Parsed payload:", payload);
+
+    // Check conversation limits before processing
+    const shopDomain = payload.shop_domain || 'unknown-shop.myshopify.com';
+    const limitCheck = await checkConversationLimit(shopDomain);
+    
+    if (!limitCheck.allowed) {
+      console.log("🚫 Conversation limit reached for shop:", shopDomain);
+      
+      let errorMessage;
+      if (limitCheck.trialExpired) {
+        errorMessage = `Your 14-day free trial has ended! You used the chatbot for ${limitCheck.daysInTrial} days. Subscribe to continue using Jarvis AI - choose Essential ($19/month, 1000 conversations) or Sales Pro ($49/month, unlimited conversations).`;
+      } else if (limitCheck.planName === 'essential') {
+        errorMessage = `You've reached your monthly conversation limit (${limitCheck.used}/${limitCheck.limit}). Upgrade to Sales Pro for unlimited conversations!`;
+      } else {
+        errorMessage = `Monthly conversation limit reached (${limitCheck.used}/${limitCheck.limit}). Please contact support for assistance.`;
+      }
+      
+      return new Response(JSON.stringify({
+        success: false,
+        data: {
+          response: errorMessage,
+          session_id: payload.session_id,
+          limitReached: true,
+          trialExpired: limitCheck.trialExpired || false,
+          planInfo: {
+            used: limitCheck.used,
+            limit: limitCheck.limit,
+            planName: limitCheck.planName,
+            isTrial: limitCheck.isTrial || false,
+            trialDaysRemaining: limitCheck.trialDaysRemaining || 0
+          }
+        },
+        timestamp: new Date().toISOString()
+      }), {
+        status: 429, // Too Many Requests
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json; charset=utf-8"
+        }
+      });
+    }
+
+    console.log("✅ Conversation limit check passed:", limitCheck.used, "/", limitCheck.limit);
 
     // Forward to external API
     try {
