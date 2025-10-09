@@ -203,23 +203,31 @@ export async function loader({ request }) {
     });
 
     // Get recent conversations (more inclusive - get all recent conversations for the shop)
-    const recentConversations = await prisma.chatConversation.findMany({
-      where: {
-        shopDomain
-      },
-      orderBy: {
-        startTime: 'desc'
-      },
-      take: 10,
-      include: {
-        chatMessages: {
-          take: 1,
-          orderBy: {
-            timestamp: 'asc'
-          }
+    let recentConversations = [];
+    try {
+      recentConversations = await prisma.chatConversation.findMany({
+        where: {
+          shopDomain
+        },
+        orderBy: {
+          startTime: 'desc'
+        },
+        take: 10,
+        select: {
+          id: true,
+          startTime: true,
+          endTime: true,
+          customerName: true,
+          topic: true,
+          status: true,
+          converted: true,
+          customerSatisfaction: true
         }
-      }
-    });
+      });
+    } catch (error) {
+      console.error("Error fetching recent conversations:", error);
+      recentConversations = [];
+    }
 
     // Get real-time conversation count directly from database
     const actualTotalConversations = await prisma.chatConversation.count({
@@ -266,38 +274,50 @@ export async function loader({ request }) {
     const lastHour = new Date();
     lastHour.setHours(lastHour.getHours() - 1);
     
-    const activeSessions = await prisma.chatConversation.count({
-      where: {
-        shopDomain,
-        startTime: {
-          gte: lastHour
-        },
-        OR: [
-          { endTime: null },
-          { endTime: { gte: lastHour } }
-        ]
-      }
-    });
+    let activeSessions = 0;
+    try {
+      activeSessions = await prisma.chatConversation.count({
+        where: {
+          shopDomain,
+          startTime: {
+            gte: lastHour
+          },
+          OR: [
+            { endTime: null },
+            { endTime: { gte: lastHour } }
+          ]
+        }
+      });
+    } catch (error) {
+      console.error("Error counting active sessions:", error);
+      activeSessions = 0;
+    }
 
     // Calculate average session duration from completed conversations
-    const completedConversations = await prisma.chatConversation.findMany({
-      where: {
-        shopDomain,
-        endTime: { not: null },
-        startTime: { gte: startDate }
-      },
-      select: {
-        startTime: true,
-        endTime: true
-      }
-    });
+    let avgSessionDuration = 0;
+    try {
+      const completedConversations = await prisma.chatConversation.findMany({
+        where: {
+          shopDomain,
+          endTime: { not: null },
+          startTime: { gte: startDate }
+        },
+        select: {
+          startTime: true,
+          endTime: true
+        }
+      });
 
-    const avgSessionDuration = completedConversations.length > 0 
-      ? completedConversations.reduce((sum, conv) => {
-          const duration = (new Date(conv.endTime) - new Date(conv.startTime)) / (1000 * 60); // minutes
-          return sum + duration;
-        }, 0) / completedConversations.length
-      : 0;
+      avgSessionDuration = completedConversations.length > 0 
+        ? completedConversations.reduce((sum, conv) => {
+            const duration = (new Date(conv.endTime) - new Date(conv.startTime)) / (1000 * 60); // minutes
+            return sum + duration;
+          }, 0) / completedConversations.length
+        : 0;
+    } catch (error) {
+      console.error("Error calculating session duration:", error);
+      avgSessionDuration = 0;
+    }
 
     // Calculate messages per session
     const totalMessages = await prisma.chatMessage.count({
