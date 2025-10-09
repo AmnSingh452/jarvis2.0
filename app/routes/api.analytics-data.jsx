@@ -1,4 +1,5 @@
 import { json } from "@remix-run/node";
+import prisma from "../db.server.js";
 
 // CORS headers for all responses
 const corsHeaders = {
@@ -181,9 +182,6 @@ export async function loader({ request }) {
     if (!shopDomain) {
       return json({ error: "Shop parameter required" }, { status: 400, headers: corsHeaders });
     }
-
-    const { PrismaClient } = await import("@prisma/client");
-    const prisma = new PrismaClient();
 
     // Calculate date range
     const endDate = new Date();
