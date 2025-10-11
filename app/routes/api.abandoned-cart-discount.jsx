@@ -24,6 +24,25 @@ export const action = async ({ request }) => {
       }, { status: 400 });
     }
 
+    // Check if cart abandonment recovery is enabled in widget settings
+    const widgetSettings = await prisma.widgetSettings.findUnique({
+      where: { shopDomain: session.shop }
+    });
+
+    // If cart abandonment is not enabled, return error
+    if (!widgetSettings?.cartAbandonmentEnabled) {
+      console.log("🚫 Cart abandonment recovery is disabled for shop:", session.shop);
+      return json({ 
+        error: "Cart abandonment recovery is not enabled",
+        message: "Please enable cart abandonment recovery in your widget settings to use this feature."
+      }, { status: 403 });
+    }
+
+    console.log("✅ Cart abandonment recovery is enabled for shop:", session.shop);
+
+    // Use discount percentage from widget settings if available, otherwise use request body or default
+    const configuredDiscountPercentage = widgetSettings.cartAbandonmentDiscount || discountPercentage;
+
     // Check rate limiting - only 1 discount per session/customer per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const rateLimitWhere = {
@@ -79,7 +98,7 @@ export const action = async ({ request }) => {
             shop_domain: session.shop,
             customer_id: customerId,
             cart_data: cartData,
-            discount_percentage: discountPercentage
+            discount_percentage: configuredDiscountPercentage
           })
         });
 
@@ -111,7 +130,7 @@ export const action = async ({ request }) => {
           customerId: customerId || null,
           shopDomain: session.shop,
           discountCode: null,
-          discountPercentage: discountPercentage,
+          discountPercentage: configuredDiscountPercentage,
           success: false,
           errorMessage: "External API not accessible - all endpoints returned 404 or failed"
         }
@@ -131,7 +150,7 @@ export const action = async ({ request }) => {
         customerId: customerId || null,
         shopDomain: session.shop,
         discountCode: externalResponse.discount_code || null,
-        discountPercentage: discountPercentage,
+        discountPercentage: configuredDiscountPercentage,
         success: true,
         errorMessage: null
       }

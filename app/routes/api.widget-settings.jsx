@@ -79,7 +79,10 @@ export async function loader({ request }) {
         enableSounds: false,
         autoOpen: false,
         customCSS: "",
-        isEnabled: true
+        isEnabled: true,
+        cartAbandonmentEnabled: false,
+        cartAbandonmentDiscount: 10,
+        cartAbandonmentDelay: 300
       };
     } else {
       // Force enable for testing
