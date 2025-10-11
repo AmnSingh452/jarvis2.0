@@ -177,7 +177,7 @@ export default function Analytics() {
                           <Text variant="bodySm" color="subdued">
                             Subscribe to continue using Jarvis AI chatbot. Choose Essential ($19/month) or Sales Pro ($49/month) to reactivate your widget.
                           </Text>
-                          <Button variant="primary" url="/app/billing">
+                          <Button variant="primary" url="/app/billing_v2">
                             Choose Your Plan
                           </Button>
                         </BlockStack>
@@ -203,7 +203,7 @@ export default function Analytics() {
                               " Your trial ends soon - choose a plan to continue."}
                           </Text>
                           {analyticsData.planUsage.trialDaysRemaining <= 7 && (
-                            <Button variant="primary" url="/app/billing">
+                            <Button variant="primary" url="/app/billing_v2">
                               Subscribe Now & Save
                             </Button>
                           )}
