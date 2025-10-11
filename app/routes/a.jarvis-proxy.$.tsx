@@ -786,6 +786,27 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
       const { PrismaClient } = await import("@prisma/client");
       const prisma = new PrismaClient();
 
+      // Check if cart abandonment recovery is enabled in widget settings
+      const widgetSettings = await prisma.widgetSettings.findUnique({
+        where: { shopDomain: shop_domain || shop }
+      });
+
+      // If cart abandonment is not enabled, return error
+      if (!widgetSettings?.cartAbandonmentEnabled) {
+        console.log("🚫 Cart abandonment recovery is disabled for shop:", shop_domain || shop);
+        await prisma.$disconnect();
+        return json({ 
+          success: false,
+          error: "Cart abandonment recovery is not enabled",
+          message: "Please enable cart abandonment recovery in your widget settings to use this feature."
+        }, { 
+          status: 403,
+          headers: corsHeaders 
+        });
+      }
+
+      console.log("✅ Cart abandonment recovery is enabled for shop:", shop_domain || shop);
+
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       
       const recentDiscount = await prisma.cartAbandonmentLog.findFirst({
@@ -834,14 +855,40 @@ async function handleAbandonedCartDiscount(request: Request, session: any | null
       console.warn("⚠️ Database rate limiting check failed:", dbError);
     }
 
+    // Get widget settings for configured discount percentage
+    let configuredDiscountPercentage = 10; // default
+    try {
+      const { PrismaClient } = await import("@prisma/client");
+      const prisma = new PrismaClient();
+      
+      const widgetSettings = await prisma.widgetSettings.findUnique({
+        where: { shopDomain: shop_domain || shop }
+      });
+      
+      if (widgetSettings?.cartAbandonmentDiscount) {
+        configuredDiscountPercentage = widgetSettings.cartAbandonmentDiscount;
+        console.log("🎯 Using configured discount percentage:", configuredDiscountPercentage + "%");
+      }
+      
+      await prisma.$disconnect();
+    } catch (error) {
+      console.warn("⚠️ Could not fetch discount percentage from settings, using default:", error instanceof Error ? error.message : error);
+    }
+
+    // Modify request data to include configured discount percentage
+    const modifiedRequestData = {
+      ...requestData,
+      discount_percentage: configuredDiscountPercentage
+    };
+
     // Forward the request to the external CartRecover_Bot API
     const response = await fetch("https://cartrecover-bot.onrender.com/api/abandoned-cart-discount", {
       method: "POST",
       headers: {
-        "Content-Type": contentType || "application/json",
+        "Content-Type": "application/json",
         "User-Agent": "Shopify-Chatbot-Proxy/1.0"
       },
-      body: body
+      body: JSON.stringify(modifiedRequestData)
     });
 
     const responseData = await response.text();
