@@ -110,10 +110,6 @@ export default function Analytics() {
     <Page 
       title="Analytics & Insights"
       subtitle="Track your chatbot performance and customer engagement"
-      primaryAction={{
-        content: "Export Report",
-        onAction: () => console.log("Export report")
-      }}
     >
       <Layout>
         <Layout.Section>
