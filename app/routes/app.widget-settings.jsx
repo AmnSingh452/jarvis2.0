@@ -275,7 +275,7 @@ export default function WidgetSettings() {
     <Frame>
       <Page
         title="Chatbot Widget Customization"
-        subtitle="Customize the appearance and behavior of your chatbot widget"
+        subtitle="Customize the appearance and features of your chatbot widget"
         primaryAction={{
           content: "Save Changes",
           onAction: handleSave,
@@ -522,37 +522,6 @@ export default function WidgetSettings() {
           
           <Layout.Section oneHalf>
             <BlockStack gap="500">
-              {/* Behavior Settings */}
-              <Card>
-                <BlockStack gap="400">
-                  <Text variant="headingMd" as="h2">⚙️ Behavior</Text>
-                  <FormLayout>
-                    <Checkbox
-                      label="Enable Widget"
-                      checked={formData.isEnabled}
-                      onChange={handleFieldChange("isEnabled")}
-                      helpText="Turn the chatbot widget on or off"
-                    />
-                    <Checkbox
-                      label="Show Typing Indicator"
-                      checked={formData.showTypingIndicator}
-                      onChange={handleFieldChange("showTypingIndicator")}
-                    />
-                    <Checkbox
-                      label="Enable Sounds"
-                      checked={formData.enableSounds}
-                      onChange={handleFieldChange("enableSounds")}
-                    />
-                    <Checkbox
-                      label="Auto Open on Page Load"
-                      checked={formData.autoOpen}
-                      onChange={handleFieldChange("autoOpen")}
-                      helpText="Automatically open chat window when customers visit your store"
-                    />
-                  </FormLayout>
-                </BlockStack>
-              </Card>
-              
               {/* Cart Abandonment Recovery */}
               <Card>
                 <BlockStack gap="400">
