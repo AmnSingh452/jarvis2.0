@@ -42,89 +42,110 @@ async function handleSubscriptionUpdate(shopDomain, payload) {
       fullSubscriptionObject: subscription
     });
 
-    // Handle case where subscription.id might be undefined
-    if (!subscription.id) {
-      console.warn(`Subscription ID is undefined for ${shopDomain}. Using alternative identification method.`);
-      
-      // Try to find subscription by shop domain and plan name
-      const existingSubscription = await prisma.subscription.findFirst({
+    // First, try to find existing subscription
+    const subscriptionId = subscription.id ? subscription.id.toString() : null;
+    let existingSubscription = null;
+
+    if (subscriptionId) {
+      existingSubscription = await prisma.subscription.findFirst({
+        where: { 
+          shopDomain,
+          shopifySubscriptionId: subscriptionId
+        }
+      });
+    }
+
+    // If no existing subscription found, try to find by shop domain and status
+    if (!existingSubscription) {
+      existingSubscription = await prisma.subscription.findFirst({
         where: { 
           shopDomain,
           status: 'ACTIVE'
         }
       });
+    }
 
-      if (existingSubscription) {
-        // Update existing subscription
-        await prisma.subscription.update({
-          where: { id: existingSubscription.id },
-          data: {
-            status: subscription.status ? subscription.status.toUpperCase() : 'ACTIVE',
-            updatedAt: new Date()
-          }
-        });
-        console.log(`Updated subscription ${existingSubscription.id} for ${shopDomain}`);
-      } else {
-        console.log(`No existing subscription found for ${shopDomain} to update`);
-      }
-    } else {
-      // Normal flow with subscription ID
-      const subscriptionId = subscription.id.toString();
+    // If still no subscription found, CREATE a new one
+    if (!existingSubscription && (subscription.status === 'active' || subscription.status === 'ACTIVE')) {
+      console.log(`Creating new subscription for ${shopDomain}`);
       
-      // Update subscription status in database
-      await prisma.subscription.updateMany({
-        where: { 
-          shopDomain,
-          shopifySubscriptionId: subscriptionId
-        },
+      // Get the first available plan (should be Essential)
+      const plan = await prisma.plan.findFirst({
+        where: { isActive: true },
+        orderBy: { price: 'asc' } // Get the cheapest plan first
+      });
+
+      if (!plan) {
+        console.error(`No plans available to create subscription for ${shopDomain}`);
+        return;
+      }
+
+      const newSubscription = await prisma.subscription.create({
         data: {
+          shopDomain,
+          planId: plan.id,
           status: subscription.status ? subscription.status.toUpperCase() : 'ACTIVE',
+          shopifySubscriptionId: subscriptionId,
+          billingCycle: 'monthly',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          messagesUsed: 0,
+          messagesLimit: plan.messagesLimit,
+          createdAt: new Date(),
           updatedAt: new Date()
         }
       });
+
+      console.log(`✅ Created new subscription ${newSubscription.id} for ${shopDomain}`);
+      return;
+    }
+
+    // If subscription exists, UPDATE it
+    if (existingSubscription) {
+      await prisma.subscription.update({
+        where: { id: existingSubscription.id },
+        data: {
+          status: subscription.status ? subscription.status.toUpperCase() : 'ACTIVE',
+          shopifySubscriptionId: subscriptionId,
+          updatedAt: new Date()
+        }
+      });
+      console.log(`✅ Updated existing subscription ${existingSubscription.id} for ${shopDomain}`);
     }
     
     // Handle specific status changes
     if (subscription.status === 'cancelled' || subscription.status === 'CANCELLED') {
       console.log(`Subscription cancelled for ${shopDomain}`);
-      // You could send notification emails here
+      // Update status to cancelled
+      if (existingSubscription) {
+        await prisma.subscription.update({
+          where: { id: existingSubscription.id },
+          data: {
+            status: 'CANCELLED',
+            updatedAt: new Date()
+          }
+        });
+      }
     } else if (subscription.status === 'active' || subscription.status === 'ACTIVE') {
       console.log(`Subscription activated for ${shopDomain}`);
       
-      // Reset usage if it's a new billing cycle
-      const currentPeriodStart = new Date();
-      const currentPeriodEnd = new Date();
-      currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
-      
-      const subscriptionId = subscription.id ? subscription.id.toString() : null;
-      
-      if (subscriptionId) {
-        await prisma.subscription.updateMany({
-          where: { 
-            shopDomain,
-            shopifySubscriptionId: subscriptionId
-          },
+      // Reset usage if it's a new billing cycle and subscription exists
+      if (existingSubscription) {
+        const currentPeriodStart = new Date();
+        const currentPeriodEnd = new Date();
+        currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
+        
+        await prisma.subscription.update({
+          where: { id: existingSubscription.id },
           data: {
             messagesUsed: 0, // Reset usage for new billing cycle
             currentPeriodStart,
             currentPeriodEnd,
+            status: 'ACTIVE',
             updatedAt: new Date()
           }
         });
-      } else {
-        // Update by shop domain if no subscription ID
-        await prisma.subscription.updateMany({
-          where: { 
-            shopDomain,
-            status: 'ACTIVE'
-          },
-          data: {
-            messagesUsed: 0,
-            currentPeriodStart,
-            currentPeriodEnd,
-            updatedAt: new Date()
-          }
-        });
+        console.log(`✅ Reset usage counters for ${shopDomain}`);
       }
     }
     
