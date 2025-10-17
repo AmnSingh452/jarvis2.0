@@ -14,7 +14,7 @@ export async function action({ request }) {
       await prisma.subscription.deleteMany({
         where: { 
           shopDomain: shop,
-          shopifySubscriptionId: "test-simulation-123"
+          shopifyChargeId: "test-simulation-123"
         }
       });
 
@@ -37,7 +37,7 @@ export async function action({ request }) {
       let existingSubscription = await prisma.subscription.findFirst({
         where: { 
           shopDomain: shop,
-          shopifySubscriptionId: subscriptionId
+          shopifyChargeId: subscriptionId
         }
       });
 
@@ -62,14 +62,12 @@ export async function action({ request }) {
             shopDomain: shop,
             planId: plan.id,
             status: subscription.status.toUpperCase(),
-            shopifySubscriptionId: subscriptionId,
+            shopifyChargeId: subscriptionId,
             billingCycle: 'monthly',
             currentPeriodStart: new Date(),
             currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             messagesUsed: 0,
-            messagesLimit: plan.messagesLimit,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            messagesLimit: plan.messagesLimit
           }
         });
 
@@ -106,7 +104,7 @@ export async function action({ request }) {
       const deletedCount = await prisma.subscription.deleteMany({
         where: { 
           shopDomain: shop,
-          shopifySubscriptionId: "test-simulation-123"
+          shopifyChargeId: "test-simulation-123"
         }
       });
 

@@ -50,7 +50,7 @@ async function handleSubscriptionUpdate(shopDomain, payload) {
       existingSubscription = await prisma.subscription.findFirst({
         where: { 
           shopDomain,
-          shopifySubscriptionId: subscriptionId
+          shopifyChargeId: subscriptionId
         }
       });
     }
@@ -85,14 +85,12 @@ async function handleSubscriptionUpdate(shopDomain, payload) {
           shopDomain,
           planId: plan.id,
           status: subscription.status ? subscription.status.toUpperCase() : 'ACTIVE',
-          shopifySubscriptionId: subscriptionId,
+          shopifyChargeId: subscriptionId,
           billingCycle: 'monthly',
           currentPeriodStart: new Date(),
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
           messagesUsed: 0,
-          messagesLimit: plan.messagesLimit,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          messagesLimit: plan.messagesLimit
         }
       });
 
@@ -106,7 +104,7 @@ async function handleSubscriptionUpdate(shopDomain, payload) {
         where: { id: existingSubscription.id },
         data: {
           status: subscription.status ? subscription.status.toUpperCase() : 'ACTIVE',
-          shopifySubscriptionId: subscriptionId,
+          shopifyChargeId: subscriptionId,
           updatedAt: new Date()
         }
       });
