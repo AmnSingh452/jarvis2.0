@@ -58,6 +58,51 @@ export async function loader({ request }) {
   const prisma = new PrismaClient();
 
   try {
+    // Check trial status and subscription first
+    let isWidgetAllowed = true;
+    let trialStatus = null;
+    
+    try {
+      // Get shop installation info to check trial period
+      const shop = await prisma.shop.findUnique({
+        where: { shopDomain }
+      });
+
+      if (shop) {
+        // Calculate trial period (14 days from installation)
+        const now = new Date();
+        const trialEndDate = new Date(shop.installedAt);
+        trialEndDate.setDate(trialEndDate.getDate() + 14);
+        const trialExpired = now > trialEndDate;
+
+        // Check for active subscription
+        const subscription = await prisma.subscription.findFirst({
+          where: { 
+            shopDomain, 
+            status: 'active' 
+          }
+        });
+
+        // If trial expired and no active subscription, disable widget
+        if (trialExpired && !subscription) {
+          isWidgetAllowed = false;
+          trialStatus = {
+            expired: true,
+            message: "Trial period has ended. Please subscribe to continue using the chatbot."
+          };
+          console.log("🚫 Widget disabled due to expired trial for shop:", shopDomain);
+        } else if (trialExpired && subscription) {
+          console.log("✅ Widget enabled for shop with active subscription:", shopDomain);
+        } else {
+          const daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          console.log(`⏰ Widget enabled for shop in trial period (${daysRemaining} days remaining):`, shopDomain);
+        }
+      }
+    } catch (trialError) {
+      console.warn("⚠️ Could not check trial status, allowing widget:", trialError instanceof Error ? trialError.message : trialError);
+      // If we can't check trial status, allow widget to work (fail-open)
+    }
+
     let settings = await prisma.widgetSettings.findUnique({
       where: { shopDomain }
     });
@@ -79,17 +124,20 @@ export async function loader({ request }) {
         enableSounds: false,
         autoOpen: false,
         customCSS: "",
-        isEnabled: true,
+        isEnabled: isWidgetAllowed, // Apply trial validation to default settings too
         cartAbandonmentEnabled: false,
         cartAbandonmentDiscount: 10,
         cartAbandonmentDelay: 300
       };
     } else {
-      // Force enable for testing
-      settings.isEnabled = true;
+      // Apply trial validation - disable widget if trial expired and no subscription
+      settings.isEnabled = settings.isEnabled && isWidgetAllowed;
     }
 
-    return withCORS(json({ settings }));
+    return withCORS(json({ 
+      settings,
+      trialStatus: trialStatus 
+    }));
   } catch (error) {
     console.error("Error fetching widget settings:", error);
     return withCORS(json({ error: "Failed to fetch settings" }, { status: 500 }));
