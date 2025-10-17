@@ -1,10 +1,12 @@
 import { json } from "@remix-run/node";
-import { prisma } from "~/db.server";
+import { PrismaClient } from "@prisma/client";
 
 /**
  * Debug endpoint to manually refresh subscription status
  */
 export async function loader({ request }) {
+  const prisma = new PrismaClient();
+  
   try {
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
@@ -64,5 +66,7 @@ export async function loader({ request }) {
       error: "Debug failed", 
       details: error.message 
     }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
