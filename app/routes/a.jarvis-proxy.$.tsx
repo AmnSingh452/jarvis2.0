@@ -655,6 +655,51 @@ async function handleWidgetSettings(request: Request, session: any | null, shop:
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
 
+    // Check trial status and subscription
+    let isWidgetAllowed = true;
+    let trialStatus = null;
+    
+    try {
+      // Get shop installation info to check trial period
+      const shopInfo = await prisma.shop.findUnique({
+        where: { shopDomain: shop }
+      });
+
+      if (shopInfo) {
+        // Calculate trial period (14 days from installation)
+        const now = new Date();
+        const trialEndDate = new Date(shopInfo.installedAt);
+        trialEndDate.setDate(trialEndDate.getDate() + 14);
+        const trialExpired = now > trialEndDate;
+
+        // Check for active subscription
+        const subscription = await prisma.subscription.findFirst({
+          where: { 
+            shopDomain: shop, 
+            status: 'active' 
+          }
+        });
+
+        // If trial expired and no active subscription, disable widget
+        if (trialExpired && !subscription) {
+          isWidgetAllowed = false;
+          trialStatus = {
+            expired: true,
+            message: "Trial period has ended. Please subscribe to continue using the chatbot."
+          };
+          console.log("🚫 Widget disabled for shop due to expired trial:", shop);
+        } else if (trialExpired && subscription) {
+          console.log("✅ Widget enabled for shop with active subscription:", shop);
+        } else {
+          const daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          console.log(`⏰ Widget enabled for shop in trial period (${daysRemaining} days remaining):`, shop);
+        }
+      }
+    } catch (trialError) {
+      console.warn("⚠️ Could not check trial status, allowing widget:", trialError instanceof Error ? trialError.message : trialError);
+      // If we can't check trial status, allow widget to work (fail-open)
+    }
+
     try {
       let settings = await prisma.widgetSettings.findUnique({
         where: { shopDomain: shop }
@@ -689,7 +734,7 @@ async function handleWidgetSettings(request: Request, session: any | null, shop:
         success: true,
         shop: shop,
         settings: {
-          isEnabled: settings.isEnabled,
+          isEnabled: settings.isEnabled && isWidgetAllowed, // Disable widget if trial expired
           primaryColor: settings.primaryColor,
           secondaryColor: settings.secondaryColor,
           buttonSize: settings.buttonSize,
@@ -710,6 +755,7 @@ async function handleWidgetSettings(request: Request, session: any | null, shop:
           cartAbandonmentDelay: settings.cartAbandonmentDelay,
           cartAbandonmentMessage: settings.cartAbandonmentMessage
         },
+        trialStatus: trialStatus,
         timestamp: new Date().toISOString()
       }, {
         headers: corsHeaders
