@@ -1,7 +1,8 @@
 import { json } from "@remix-run/node";
-import { prisma } from "../db.server";
 
 export async function loader({ request }) {
+  const { PrismaClient } = await import("@prisma/client");
+  const prisma = new PrismaClient();
   try {
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
@@ -31,15 +32,19 @@ export async function loader({ request }) {
       where: { shopDomain: shop }
     });
 
-    return json({
+    const result = {
       shop: shop,
       shopExists: shopExists > 0,
       totalSubscriptions: subscriptionCount,
       activeSubscriptions: activeSubscriptionCount,
       timestamp: new Date().toISOString()
-    });
+    };
+
+    await prisma.$disconnect();
+    return json(result);
 
   } catch (error) {
+    await prisma.$disconnect();
     return json({ 
       error: error.message,
       shop: shop || 'unknown'
