@@ -672,11 +672,15 @@ async function handleWidgetSettings(request: Request, session: any | null, shop:
         trialEndDate.setDate(trialEndDate.getDate() + 14);
         const trialExpired = now > trialEndDate;
 
-        // Check for active subscription
+        // Check for active subscription (handle different case variations)
         const subscription = await prisma.subscription.findFirst({
           where: { 
             shopDomain: shop, 
-            status: 'active' 
+            OR: [
+              { status: 'active' },
+              { status: 'ACTIVE' },
+              { status: 'Active' }
+            ]
           }
         });
 

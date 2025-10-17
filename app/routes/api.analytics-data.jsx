@@ -49,11 +49,15 @@ async function checkConversationLimit(shopDomain, prisma) {
     const isInTrialPeriod = now <= trialEndDate;
     const trialExpired = now > trialEndDate;
 
-    // Get shop's active subscription plan
+    // Get shop's active subscription plan (handle different case variations)
     const subscription = await prisma.subscription.findFirst({
       where: { 
         shopDomain, 
-        status: 'active' 
+        OR: [
+          { status: 'active' },
+          { status: 'ACTIVE' },
+          { status: 'Active' }
+        ]
       },
       include: { 
         plan: true 

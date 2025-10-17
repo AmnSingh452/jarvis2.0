@@ -75,11 +75,15 @@ export async function loader({ request }) {
         trialEndDate.setDate(trialEndDate.getDate() + 14);
         const trialExpired = now > trialEndDate;
 
-        // Check for active subscription
+        // Check for active subscription (handle different case variations)
         const subscription = await prisma.subscription.findFirst({
           where: { 
             shopDomain, 
-            status: 'active' 
+            OR: [
+              { status: 'active' },
+              { status: 'ACTIVE' },
+              { status: 'Active' }
+            ]
           }
         });
 
