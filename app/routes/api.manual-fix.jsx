@@ -18,16 +18,30 @@ export async function action({ request }) {
     }
 
     if (action === "create_subscription") {
+      // First check if there are any plans in the database
+      const plans = await prisma.plan.findMany();
+      
+      if (plans.length === 0) {
+        await prisma.$disconnect();
+        return json({ 
+          error: "No plans found in database. Create plans first." 
+        }, { status: 400 });
+      }
+
+      // Use the first available plan (likely Essential)
+      const plan = plans[0];
+
       // Create a manual subscription record for the shop
       const subscription = await prisma.subscription.create({
         data: {
           shopDomain: shop,
           status: 'ACTIVE',
-          shopifySubscriptionId: 'manual-fix-' + Date.now(),
-          planId: 1, // Assuming Essential plan
-          messagesUsed: 0,
+          planId: plan.id, // Use the actual plan ID
+          billingCycle: 'monthly',
           currentPeriodStart: new Date(),
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          messagesUsed: 0,
+          messagesLimit: plan.messagesLimit,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -38,7 +52,8 @@ export async function action({ request }) {
       return json({ 
         success: true, 
         message: "Subscription created manually",
-        subscription: subscription
+        subscription: subscription,
+        plan: plan
       });
     }
 
