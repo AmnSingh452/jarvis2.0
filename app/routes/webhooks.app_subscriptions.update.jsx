@@ -39,8 +39,61 @@ async function handleSubscriptionUpdate(shopDomain, payload) {
       id: subscription.id,
       status: subscription.status,
       name: subscription.name,
+      price: subscription.price,
       fullSubscriptionObject: subscription
     });
+
+    // Determine which plan was purchased based on subscription name or price
+    let targetPlan = null;
+    
+    // Method 1: Match by subscription name
+    if (subscription.name) {
+      const planName = subscription.name.toLowerCase();
+      console.log(`🔍 Analyzing plan name: "${subscription.name}"`);
+      
+      if (planName.includes('essential') || planName.includes('basic')) {
+        targetPlan = await prisma.plan.findFirst({
+          where: { name: { contains: 'Essential', mode: 'insensitive' } }
+        });
+        console.log(`📋 Matched to Essential plan by name`);
+      } else if (planName.includes('pro') || planName.includes('sales')) {
+        targetPlan = await prisma.plan.findFirst({
+          where: { name: { contains: 'Sales Pro', mode: 'insensitive' } }
+        });
+        console.log(`📋 Matched to Sales Pro plan by name`);
+      }
+    }
+    
+    // Method 2: Match by price if name matching fails
+    if (!targetPlan && subscription.price) {
+      const price = parseFloat(subscription.price);
+      console.log(`🔍 Analyzing plan price: $${price}`);
+      
+      targetPlan = await prisma.plan.findFirst({
+        where: { 
+          price: {
+            gte: price - 1, // Allow some price variance
+            lte: price + 1
+          }
+        }
+      });
+      console.log(`📋 Matched plan by price: ${targetPlan?.name || 'None found'}`);
+    }
+    
+    // Fallback: Get Essential plan as default
+    if (!targetPlan) {
+      console.log(`⚠️ Could not determine plan from webhook, defaulting to Essential for ${shopDomain}`);
+      targetPlan = await prisma.plan.findFirst({
+        where: { name: { contains: 'Essential', mode: 'insensitive' } }
+      });
+    }
+
+    if (!targetPlan) {
+      console.error(`❌ No plans available to create subscription for ${shopDomain}`);
+      return;
+    }
+
+    console.log(`🎯 Detected plan: ${targetPlan.name} ($${targetPlan.price}) for ${shopDomain}`);
 
     // First, try to find existing subscription
     const subscriptionId = subscription.id ? subscription.id.toString() : null;
@@ -55,60 +108,66 @@ async function handleSubscriptionUpdate(shopDomain, payload) {
       });
     }
 
-    // If no existing subscription found, try to find by shop domain and status
+    // If no existing subscription found, try to find by shop domain
     if (!existingSubscription) {
       existingSubscription = await prisma.subscription.findFirst({
         where: { 
-          shopDomain,
-          status: 'ACTIVE'
-        }
+          shopDomain
+        },
+        orderBy: { createdAt: 'desc' }
       });
     }
 
     // If still no subscription found, CREATE a new one
     if (!existingSubscription && (subscription.status === 'active' || subscription.status === 'ACTIVE')) {
-      console.log(`Creating new subscription for ${shopDomain}`);
-      
-      // Get the first available plan (should be Essential)
-      const plan = await prisma.plan.findFirst({
-        where: { isActive: true },
-        orderBy: { price: 'asc' } // Get the cheapest plan first
-      });
-
-      if (!plan) {
-        console.error(`No plans available to create subscription for ${shopDomain}`);
-        return;
-      }
+      console.log(`🆕 Creating new subscription for ${shopDomain} with plan ${targetPlan.name}`);
 
       const newSubscription = await prisma.subscription.create({
         data: {
           shopDomain,
-          planId: plan.id,
+          planId: targetPlan.id,
           status: subscription.status ? subscription.status.toUpperCase() : 'ACTIVE',
           shopifyChargeId: subscriptionId,
           billingCycle: 'monthly',
           currentPeriodStart: new Date(),
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
           messagesUsed: 0,
-          messagesLimit: plan.messagesLimit
+          messagesLimit: targetPlan.messagesLimit
         }
       });
 
-      console.log(`✅ Created new subscription ${newSubscription.id} for ${shopDomain}`);
+      console.log(`✅ Created new subscription ${newSubscription.id} for ${shopDomain} with plan ${targetPlan.name}`);
       return;
     }
 
-    // If subscription exists, UPDATE it
+    // If subscription exists, UPDATE it (including plan upgrade/downgrade)
     if (existingSubscription) {
+      const updateData = {
+        status: subscription.status ? subscription.status.toUpperCase() : 'ACTIVE',
+        shopifyChargeId: subscriptionId,
+        updatedAt: new Date()
+      };
+
+      // If the plan changed, update the plan
+      if (existingSubscription.planId !== targetPlan.id) {
+        updateData.planId = targetPlan.id;
+        updateData.messagesLimit = targetPlan.messagesLimit;
+        console.log(`🔄 Plan changed from ${existingSubscription.planId} to ${targetPlan.id} (${targetPlan.name}) for ${shopDomain}`);
+        
+        // Reset usage for plan upgrade
+        updateData.messagesUsed = 0;
+        updateData.currentPeriodStart = new Date();
+        updateData.currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        
+        console.log(`🔄 Resetting usage counters for plan change`);
+      }
+
       await prisma.subscription.update({
         where: { id: existingSubscription.id },
-        data: {
-          status: subscription.status ? subscription.status.toUpperCase() : 'ACTIVE',
-          shopifyChargeId: subscriptionId,
-          updatedAt: new Date()
-        }
+        data: updateData
       });
-      console.log(`✅ Updated existing subscription ${existingSubscription.id} for ${shopDomain}`);
+      
+      console.log(`✅ Updated subscription ${existingSubscription.id} for ${shopDomain} to plan ${targetPlan.name}`);
     }
     
     // Handle specific status changes
