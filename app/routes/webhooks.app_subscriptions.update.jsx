@@ -51,16 +51,26 @@ async function handleSubscriptionUpdate(shopDomain, payload) {
       const planName = subscription.name.toLowerCase();
       console.log(`🔍 Analyzing plan name: "${subscription.name}"`);
       
+      // Check for yearly vs monthly billing cycle
+      const isYearly = planName.includes('yearly') || planName.includes('annual') || planName.includes('year');
+      const billingCycle = isYearly ? 'yearly' : 'monthly';
+      
       if (planName.includes('essential') || planName.includes('basic')) {
         targetPlan = await prisma.plan.findFirst({
-          where: { name: { contains: 'Essential', mode: 'insensitive' } }
+          where: { 
+            name: { contains: 'Essential', mode: 'insensitive' },
+            billingCycle: billingCycle
+          }
         });
-        console.log(`📋 Matched to Essential plan by name`);
+        console.log(`📋 Matched to Essential ${billingCycle} plan by name`);
       } else if (planName.includes('pro') || planName.includes('sales')) {
         targetPlan = await prisma.plan.findFirst({
-          where: { name: { contains: 'Sales Pro', mode: 'insensitive' } }
+          where: { 
+            name: { contains: 'Sales Pro', mode: 'insensitive' },
+            billingCycle: billingCycle
+          }
         });
-        console.log(`📋 Matched to Sales Pro plan by name`);
+        console.log(`📋 Matched to Sales Pro ${billingCycle} plan by name`);
       }
     }
     
@@ -80,11 +90,14 @@ async function handleSubscriptionUpdate(shopDomain, payload) {
       console.log(`📋 Matched plan by price: ${targetPlan?.name || 'None found'}`);
     }
     
-    // Fallback: Get Essential plan as default
+    // Fallback: Get Essential monthly plan as default
     if (!targetPlan) {
-      console.log(`⚠️ Could not determine plan from webhook, defaulting to Essential for ${shopDomain}`);
+      console.log(`⚠️ Could not determine plan from webhook, defaulting to Essential Monthly for ${shopDomain}`);
       targetPlan = await prisma.plan.findFirst({
-        where: { name: { contains: 'Essential', mode: 'insensitive' } }
+        where: { 
+          name: { contains: 'Essential', mode: 'insensitive' },
+          billingCycle: 'monthly'
+        }
       });
     }
 
