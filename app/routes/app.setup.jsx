@@ -10,7 +10,6 @@ import {
     ButtonGroup,
     Divider,
     Box,
-    Stack,
     Icon,
     InlineCode
 } from "@shopify/polaris";
@@ -111,12 +110,12 @@ export default function Setup() {
                 {/* Progress Steps */}
                 <Layout.Section>
                     <Card sectioned>
-                        <Stack vertical spacing="loose">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <Text variant="headingMd" as="h2">Setup Progress</Text>
                             <Box paddingBlockStart="2">
-                                <Stack spacing="extraLoose">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                                     {steps.map((step) => (
-                                        <Stack key={step.id} alignment="center" spacing="tight">
+                                        <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                             <Box 
                                                 background={step.id <= currentStep ? "success" : "subdued"} 
                                                 padding="1"
@@ -132,23 +131,23 @@ export default function Setup() {
                                                     {step.id <= currentStep ? "✓" : step.id}
                                                 </Text>
                                             </Box>
-                                            <Stack vertical spacing="none">
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                 <Text variant="bodyMd" fontWeight="semibold">{step.title}</Text>
                                                 <Text variant="bodyMd" color="subdued">{step.description}</Text>
-                                            </Stack>
-                                        </Stack>
+                                            </div>
+                                        </div>
                                     ))}
-                                </Stack>
+                                </div>
                             </Box>
-                        </Stack>
+                        </div>
                     </Card>
                 </Layout.Section>
 
                 {/* Step 1: Activate Widget */}
                 <Layout.Section>
                     <Card sectioned>
-                        <Stack vertical spacing="loose">
-                            <Stack alignment="center" spacing="tight">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                 <Box 
                                     background="success" 
                                     padding="1" 
@@ -159,7 +158,7 @@ export default function Setup() {
                                     <Text variant="bodySm" color="success" fontWeight="bold">1</Text>
                                 </Box>
                                 <Text variant="headingMd" as="h3">Activate Jarvis Widget</Text>
-                            </Stack>
+                            </div>
                             
                             <Text variant="bodyMd">
                                 Click the button below to automatically open your theme editor and activate the Jarvis chatbot widget. This will add a floating chat button to your store.
@@ -197,15 +196,15 @@ export default function Setup() {
                                     theme editor → Theme Settings → App embeds → Enable "Jarvis Widget"
                                 </Text>
                             </Box>
-                        </Stack>
+                        </div>
                     </Card>
                 </Layout.Section>
 
                 {/* Step 2: Customize Settings */}
                 <Layout.Section>
                     <Card sectioned>
-                        <Stack vertical spacing="loose">
-                            <Stack alignment="center" spacing="tight">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                 <Box 
                                     background="subdued" 
                                     padding="1" 
@@ -216,7 +215,7 @@ export default function Setup() {
                                     <Text variant="bodySm" color="subdued" fontWeight="bold">2</Text>
                                 </Box>
                                 <Text variant="headingMd" as="h3">Customize Widget Settings</Text>
-                            </Stack>
+                            </div>
 
                             <Text variant="bodyMd">
                                 After activating the widget, customize its appearance and behavior from the Jarvis admin panel.
@@ -238,15 +237,15 @@ export default function Setup() {
                                     ⚙️ Go to Widget Settings
                                 </Button>
                             </Box>
-                        </Stack>
+                        </div>
                     </Card>
                 </Layout.Section>
 
                 {/* Step 3: Test Widget */}
                 <Layout.Section>
                     <Card sectioned>
-                        <Stack vertical spacing="loose">
-                            <Stack alignment="center" spacing="tight">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                 <Box 
                                     background="subdued" 
                                     padding="1" 
@@ -257,7 +256,7 @@ export default function Setup() {
                                     <Text variant="bodySm" color="subdued" fontWeight="bold">3</Text>
                                 </Box>
                                 <Text variant="headingMd" as="h3">Test Your Chatbot</Text>
-                            </Stack>
+                            </div>
 
                             <Text variant="bodyMd">
                                 Visit your store to test the chatbot and ensure it's working correctly.
@@ -289,14 +288,14 @@ export default function Setup() {
                                     </Button>
                                 </ButtonGroup>
                             </Box>
-                        </Stack>
+                        </div>
                     </Card>
                 </Layout.Section>
 
                 {/* Troubleshooting Section */}
                 <Layout.Section>
                     <Card sectioned>
-                        <Stack vertical spacing="loose">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <Text variant="headingMd" as="h3">Troubleshooting</Text>
                             
                             <Box>
@@ -311,7 +310,7 @@ export default function Setup() {
 
                             <Box paddingBlockStart="4">
                                 <Text variant="bodyMd" fontWeight="semibold">Need help?</Text>
-                                <Stack spacing="tight">
+                                <div style={{ display: 'flex', gap: '1rem' }}>
                                     <Button 
                                         outline 
                                         onClick={() => window.open('mailto:support@jarvis2-ai.com?subject=Setup Help - ' + shopDomain, '_blank')}
@@ -324,16 +323,16 @@ export default function Setup() {
                                     >
                                         🎨 Open Theme Editor
                                     </Button>
-                                </Stack>
+                                </div>
                             </Box>
-                        </Stack>
+                        </div>
                     </Card>
                 </Layout.Section>
 
                 {/* Technical Details */}
                 <Layout.Section>
                     <Card sectioned>
-                        <Stack vertical spacing="loose">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <Text variant="headingMd" as="h3">Technical Information</Text>
                             
                             <Box>
@@ -349,7 +348,7 @@ export default function Setup() {
                                 <p><strong>Developer Note:</strong> The Jarvis widget uses Shopify's official App Embed technology, 
                                 ensuring compatibility with all themes and optimal performance.</p>
                             </Banner>
-                        </Stack>
+                        </div>
                     </Card>
                 </Layout.Section>
             </Layout>
