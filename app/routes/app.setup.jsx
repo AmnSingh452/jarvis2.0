@@ -24,6 +24,7 @@ import { useLoaderData } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { useState } from "react";
+import { Redirect } from "@shopify/app-bridge/actions";
 
 export async function loader({ request }) {
   const { admin, session } = await authenticate.admin(request);
@@ -45,6 +46,22 @@ export default function Setup() {
     const app = useAppBridge();
     const { shopDomain, storeHandle, appHandle, appClientId, extensionId } = useLoaderData();
     const [currentStep, setCurrentStep] = useState(1);
+    
+    // App Bridge redirect helper
+    const redirect = Redirect.create(app);
+    
+    // Navigation handlers using App Bridge
+    const handleGoToWidgetSettings = () => {
+        redirect.dispatch(Redirect.Action.APP, '/widget-settings');
+    };
+    
+    const handleGoToAnalytics = () => {
+        redirect.dispatch(Redirect.Action.APP, '/analytics');
+    };
+    
+    const handleVisitStore = () => {
+        redirect.dispatch(Redirect.Action.REMOTE, `https://${storeHandle}.myshopify.com`);
+    };
     
     // Deep link URLs for theme app extensions
     const deepLinks = {
@@ -233,7 +250,7 @@ export default function Setup() {
                             </Box>
 
                             <Box paddingBlockStart="4">
-                                <Button onClick={() => window.location.href = '/app/widget-settings'}>
+                                <Button onClick={handleGoToWidgetSettings}>
                                     ⚙️ Go to Widget Settings
                                 </Button>
                             </Box>
@@ -276,12 +293,12 @@ export default function Setup() {
                             <Box paddingBlockStart="4">
                                 <ButtonGroup>
                                     <Button 
-                                        onClick={() => window.open(`https://${storeHandle}.myshopify.com`, '_blank')}
+                                        onClick={handleVisitStore}
                                     >
                                         🛍️ Visit Your Store
                                     </Button>
                                     <Button 
-                                        onClick={() => window.location.href = '/app/analytics'}
+                                        onClick={handleGoToAnalytics}
                                         outline
                                     >
                                         📊 View Analytics
