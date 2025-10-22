@@ -20,11 +20,10 @@ import {
     ViewIcon
 } from "@shopify/polaris-icons";
 import { useAppBridge } from "@shopify/app-bridge-react";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { useState } from "react";
-import { Redirect } from "@shopify/app-bridge/actions";
 
 export async function loader({ request }) {
   const { admin, session } = await authenticate.admin(request);
@@ -44,23 +43,21 @@ export async function loader({ request }) {
 
 export default function Setup() {
     const app = useAppBridge();
+    const navigate = useNavigate();
     const { shopDomain, storeHandle, appHandle, appClientId, extensionId } = useLoaderData();
     const [currentStep, setCurrentStep] = useState(1);
     
-    // App Bridge redirect helper
-    const redirect = Redirect.create(app);
-    
-    // Navigation handlers using App Bridge
+    // Navigation handlers using Remix navigation
     const handleGoToWidgetSettings = () => {
-        redirect.dispatch(Redirect.Action.APP, '/widget-settings');
+        navigate('/app/widget-settings');
     };
     
     const handleGoToAnalytics = () => {
-        redirect.dispatch(Redirect.Action.APP, '/analytics');
+        navigate('/app/analytics');
     };
     
     const handleVisitStore = () => {
-        redirect.dispatch(Redirect.Action.REMOTE, `https://${storeHandle}.myshopify.com`);
+        window.open(`https://${storeHandle}.myshopify.com`, '_blank');
     };
     
     // Deep link URLs for theme app extensions
