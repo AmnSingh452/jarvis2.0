@@ -24,10 +24,14 @@ import {
 import { useState, useEffect } from "react";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   
-  const url = new URL(request.url);
-  const shop = url.searchParams.get("shop") || "aman-chatbot-test.myshopify.com";
+  // Get shop from authenticated session, not from URL parameters
+  const shop = session.shop;
+  
+  if (!shop) {
+    throw new Error("No shop found in session");
+  }
   
   return json({
     shop: shop
