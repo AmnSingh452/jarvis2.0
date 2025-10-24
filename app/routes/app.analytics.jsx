@@ -329,6 +329,8 @@ export default function Analytics() {
                     </Card>
                   </Grid.Cell>
                   
+                  {/* COMMENTED OUT: Avg Session Duration */}
+                  {/*
                   <Grid.Cell columnSpan={{xs: 6, sm: 3, md: 2, lg: 2, xl: 2}}>
                     <Card>
                       <BlockStack gap="200">
@@ -340,6 +342,7 @@ export default function Analytics() {
                       </BlockStack>
                     </Card>
                   </Grid.Cell>
+                  */}
                 </Grid>
               </BlockStack>
             </Card>
@@ -430,7 +433,8 @@ export default function Analytics() {
                             <strong>Performance:</strong> Average response time is {analyticsData.overview.avgResponseTime} seconds - {analyticsData.overview.avgResponseTime < 3 ? 'excellent speed!' : 'consider optimizing response times.'}
                           </List.Item>
                           <List.Item>
-                            <strong>Sessions:</strong> {analyticsData.overview.activeSessions || 0} active sessions with an average duration of {analyticsData.overview.avgSessionDuration || 0} minutes.
+                            <strong>Sessions:</strong> {analyticsData.overview.activeSessions || 0} active sessions.
+                            {/* COMMENTED OUT: with an average duration of {analyticsData.overview.avgSessionDuration || 0} minutes. */}
                           </List.Item>
                           <List.Item>
                             <strong>Reach:</strong> {analyticsData.overview.uniqueVisitors || 0} unique visitors have interacted with your chatbot.
@@ -444,11 +448,14 @@ export default function Analytics() {
                                 'Your response rate is excellent! Consider expanding chatbot capabilities.' :
                                 'Improve response rate by adding more training data or FAQs.'}
                             </List.Item>
+                            {/* COMMENTED OUT: Session Duration recommendation */}
+                            {/*
                             <List.Item>
                               {parseFloat(analyticsData.overview.avgSessionDuration) > 3 ? 
                                 'Great engagement! Users are having meaningful conversations.' :
                                 'Boost engagement with more interactive conversation flows.'}
                             </List.Item>
+                            */}
                           </List>
                         </BlockStack>
                       </BlockStack>
@@ -487,12 +494,15 @@ export default function Analytics() {
                           <Text variant="bodyMd">Unique Visitors</Text>
                           <Badge status="info">{analyticsData.overview.uniqueVisitors || 0}</Badge>
                         </InlineStack>
+                        {/* COMMENTED OUT: Session Duration */}
+                        {/*
                         <InlineStack align="space-between">
                           <Text variant="bodyMd">Session Duration</Text>
                           <Badge status={parseFloat(analyticsData.overview.avgSessionDuration) > 3 ? "success" : "attention"}>
                             {analyticsData.overview.avgSessionDuration || 0}min
                           </Badge>
                         </InlineStack>
+                        */}
                         <BlockStack gap="200">
                           <Text variant="bodyMd" fontWeight="semibold">📊 Trend Analysis:</Text>
                           <Text variant="bodyMd" color="subdued">
@@ -512,7 +522,7 @@ export default function Analytics() {
                         <List type="bullet">
                           <List.Item>📈 Conversation growth tracking</List.Item>
                           <List.Item>👥 Visitor engagement metrics</List.Item>
-                          <List.Item>⏱️ Session duration analysis</List.Item>
+                          {/* COMMENTED OUT: <List.Item>⏱️ Session duration analysis</List.Item> */}
                           <List.Item>🎯 Performance trends</List.Item>
                         </List>
                       </BlockStack>
@@ -559,10 +569,13 @@ export default function Analytics() {
                             <strong>Engagement:</strong> {analyticsData.overview.responseRate > 80 ? "Excellent engagement rate! " : "Work on improving response rate. "}
                             Current rate: {analyticsData.overview.responseRate}%
                           </List.Item>
+                          {/* COMMENTED OUT: Session Quality */}
+                          {/*
                           <List.Item>
                             <strong>Session Quality:</strong> {parseFloat(analyticsData.overview.avgSessionDuration) > 3 ? "Users are highly engaged! " : "Try to increase conversation depth. "}
                             Average duration: {analyticsData.overview.avgSessionDuration}min
                           </List.Item>
+                          */}
                         </List>
                         
                         <BlockStack gap="200">
