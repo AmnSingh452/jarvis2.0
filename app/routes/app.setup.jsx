@@ -9,16 +9,8 @@ import {
     Banner,
     ButtonGroup,
     Divider,
-    Box,
-    Icon,
-    InlineCode
+    Box
 } from "@shopify/polaris";
-import { 
-    CheckmarkIcon,
-    ThemeIcon,
-    SettingsIcon,
-    ViewIcon
-} from "@shopify/polaris-icons";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { json } from "@remix-run/node";
