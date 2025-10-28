@@ -30,7 +30,7 @@ export async function action({ request }) {
       const salesProPlan = await prisma.plan.create({
         data: {
           name: "Sales Pro",
-          price: 29.99,
+          price: 39.99,
           billingCycle: "monthly", 
           messagesLimit: -1, // -1 for unlimited
           features: {

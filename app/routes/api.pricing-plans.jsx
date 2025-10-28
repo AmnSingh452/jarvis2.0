@@ -65,7 +65,7 @@ export async function action({ request }) {
             name: salesProYearly.name,
             price: `$${salesProYearly.price}/year`,
             monthlyEquivalent: `$${(salesProYearly.price / 12).toFixed(2)}/month`,
-            savings: "vs $29.99/month ($359.88/year)"
+            savings: "vs $39.99/month ($479.88/year)"
           }
         }
       });
@@ -114,11 +114,11 @@ export async function loader({ request }) {
     pricingStructure: {
       monthly: {
         essential: "$14.99/month",
-        salesPro: "$29.99/month"
+        salesPro: "$39.99/month"
       },
       yearly: {
         essential: "$169.99/year ($14.17/month - Save $9.99/month)",
-        salesPro: "$459.99/year ($38.33/month - Save $119.89/month)"
+        salesPro: "$459.99/year ($38.33/month - Save $20.01/month)"
       },
       trial: "14 days free trial for all plans"
     }

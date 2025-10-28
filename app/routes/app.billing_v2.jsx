@@ -54,11 +54,11 @@ export default function Billing() {
     const pricingData = {
         monthly: {
             essential: { price: 14.99, yearlyPrice: 179.88 },
-            salesPro: { price: 29.99, yearlyPrice: 359.88 }
+            salesPro: { price: 39.99, yearlyPrice: 479.88 }
         },
         yearly: {
             essential: { price: 169.99, monthlyEquivalent: 14.17, savings: 9.89 },
-            salesPro: { price: 459.99, monthlyEquivalent: 38.33, savings: 99.89 }
+            salesPro: { price: 459.99, monthlyEquivalent: 38.33, savings: 19.89 }
         }
     };
     return (
@@ -93,7 +93,7 @@ export default function Billing() {
                                 pressed={billingCycle === 'yearly'}
                                 onClick={() => setBillingCycle('yearly')}
                             >
-                                Yearly (Save up to $99/year)
+                                Yearly (Save up to $19/year)
                             </Button>
                         </ButtonGroup>
                     </Card>
@@ -142,15 +142,15 @@ export default function Billing() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {billingCycle === 'monthly' ? (
                                 <>
-                                    <Text variant="headingMd" as="h3">$29.99/month</Text>
+                                    <Text variant="headingMd" as="h3">$39.99/month</Text>
                                     <Text variant="bodyMd" color="subdued">
-                                        Or $359.88/year
+                                        Or $479.88/year
                                     </Text>
                                 </>
                             ) : (
                                 <>
                                     <Text variant="headingMd" as="h3">$459.99/year</Text>
-                                    <Badge status="success">Save $99.89/year</Badge>
+                                    <Badge status="success">Save $19.89/year</Badge>
                                     <Text variant="bodyMd" color="subdued">
                                         $38.33/month equivalent
                                     </Text>
