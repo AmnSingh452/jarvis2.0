@@ -4,7 +4,11 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Connection URLs have been moved out of schema.prisma in Prisma 7+.
+  // Configure the database connection for Migrate in prisma.config.ts
+  // and pass `adapter` (for direct DB) or `accelerateUrl` (for Accelerate)
+  // to the PrismaClient constructor as described in:
+  // https://pris.ly/d/config-datasource and https://pris.ly/d/prisma7-client-config
 }
 
 model Session {
@@ -178,4 +182,62 @@ model AnalyticsMetrics {
 
   @@unique([shopDomain, date])
   @@index([shopDomain, date])
+}
+
+// Partner Program Models
+model Agency {
+  id                      String             @id @default(cuid())
+  name                    String
+  email                   String             @unique
+  referralCode            String             @unique
+  paymentMethod           String?            // 'wise', 'paypal', 'bank_transfer'
+  paymentEmail            String?            // for PayPal/Wise
+  bankAccountEncrypted    String?            // encrypted bank details
+  minimumPayoutThreshold  Decimal            @default(25.00)
+  active                  Boolean            @default(true)
+  paymentVerified         Boolean            @default(false)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  merchantReferrals       MerchantReferral[]
+  partnerPayouts          PartnerPayout[]
+
+  @@index([referralCode])
+  @@index([email])
+}
+
+model MerchantReferral {
+  id                String    @id @default(cuid())
+  shopDomain        String    @unique
+  agencyId          String
+  referredAt        DateTime  @default(now())
+  lastBilledAmount  Decimal?
+  lastBilledAt      DateTime?
+  lifetimeRevenue   Decimal   @default(0)
+  active            Boolean   @default(true)
+  agency            Agency    @relation(fields: [agencyId], references: [id])
+
+  @@index([shopDomain])
+  @@index([agencyId])
+  @@index([agencyId, active])
+}
+
+model PartnerPayout {
+  id                  String    @id @default(cuid())
+  agencyId            String
+  monthFor            DateTime  // First day of month
+  grossAmount         Decimal   @default(0)
+  commissionAmount    Decimal   @default(0)
+  commissionRate      Decimal   @default(0.25) // 25% commission
+  paid                Boolean   @default(false)
+  paymentReference    String?
+  paymentMethod       String?   // 'wise', 'paypal', 'manual'
+  paidAt              DateTime?
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  agency              Agency    @relation(fields: [agencyId], references: [id])
+
+  @@unique([agencyId, monthFor])
+  @@index([agencyId, monthFor])
+  @@index([paid])
 }
