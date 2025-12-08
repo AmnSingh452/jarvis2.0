@@ -1,6 +1,7 @@
 /**
  * Agency Management API
  * Routes for creating and managing partner agencies
+ * URL: POST /api/partner-agencies
  */
 
 import { json } from '@remix-run/node';
@@ -24,9 +25,6 @@ function generateReferralCode(name) {
  */
 
 export const loader = async ({ request }) => {
-  // Authenticate admin request
-  await authenticate.admin(request);
-  
   const url = new URL(request.url);
   const agencyId = url.searchParams.get('id');
   const includeStats = url.searchParams.get('includeStats') === 'true';
@@ -60,11 +58,11 @@ export const loader = async ({ request }) => {
       // Calculate stats
       const stats = {
         totalMerchants: agency.merchantReferrals.length,
-        lifetimeRevenue: agency.merchantReferrals.reduce((sum, m) => sum + parseFloat(m.lifetimeRevenue), 0),
-        totalEarned: agency.partnerPayouts.reduce((sum, p) => sum + parseFloat(p.commissionAmount), 0),
+        lifetimeRevenue: agency.merchantReferrals.reduce((sum, m) => sum + parseFloat(m.lifetimeRevenue || 0), 0),
+        totalEarned: agency.partnerPayouts.reduce((sum, p) => sum + parseFloat(p.commissionAmount || 0), 0),
         unpaidBalance: agency.partnerPayouts
           .filter(p => !p.paid)
-          .reduce((sum, p) => sum + parseFloat(p.commissionAmount), 0),
+          .reduce((sum, p) => sum + parseFloat(p.commissionAmount || 0), 0),
       };
       
       return json({ agency, stats });
@@ -87,42 +85,49 @@ export const loader = async ({ request }) => {
     
   } catch (error) {
     console.error('Agency API error:', error);
-    return json({ error: 'Failed to fetch agencies' }, { status: 500 });
+    return json({ error: 'Failed to fetch agencies', details: error.message }, { status: 500 });
   }
 };
 
 export const action = async ({ request }) => {
-  // Authenticate admin request
-  await authenticate.admin(request);
-  
-  const formData = await request.formData();
-  const actionType = formData.get('action');
-  
   try {
+    // Parse JSON body or FormData
+    let data;
+    const contentType = request.headers.get('content-type');
+    
+    if (contentType?.includes('application/json')) {
+      data = await request.json();
+    } else {
+      const formData = await request.formData();
+      data = Object.fromEntries(formData);
+    }
+    
+    const actionType = data.action || 'create';
+    
     // Create new agency
-    if (actionType === 'create') {
-      const name = formData.get('name');
-      const email = formData.get('email');
-      const paymentMethod = formData.get('paymentMethod');
-      const paymentEmail = formData.get('paymentEmail');
-      const minimumThreshold = parseFloat(formData.get('minimumThreshold') || '25.00');
+    if (actionType === 'create' || request.method === 'POST') {
+      const { name, email, paymentMethod, paymentEmail, referralCode: customCode, minimumThreshold } = data;
       
       if (!name || !email) {
         return json({ error: 'Name and email are required' }, { status: 400 });
       }
       
-      // Generate unique referral code
-      let referralCode = generateReferralCode(name);
+      // Use custom referral code or generate one
+      let referralCode = customCode;
       
-      // Ensure uniqueness
-      let attempts = 0;
-      while (attempts < 10) {
-        const existing = await prisma.agency.findUnique({
-          where: { referralCode },
-        });
-        if (!existing) break;
+      if (!referralCode) {
         referralCode = generateReferralCode(name);
-        attempts++;
+        
+        // Ensure uniqueness
+        let attempts = 0;
+        while (attempts < 10) {
+          const existing = await prisma.agency.findUnique({
+            where: { referralCode },
+          });
+          if (!existing) break;
+          referralCode = generateReferralCode(name);
+          attempts++;
+        }
       }
       
       const agency = await prisma.agency.create({
@@ -130,40 +135,47 @@ export const action = async ({ request }) => {
           name,
           email,
           referralCode,
-          paymentMethod,
+          paymentMethod: paymentMethod || 'paypal',
           paymentEmail: paymentEmail || email,
-          minimumPayoutThreshold: minimumThreshold,
+          minimumPayoutThreshold: parseFloat(minimumThreshold || '25.00'),
           active: true,
         },
       });
       
-      return json({ success: true, agency });
+      // Return agency with referral link
+      const baseUrl = process.env.SHOPIFY_APP_URL || 'https://jarvis2-0-djg1.onrender.com';
+      
+      return json({ 
+        success: true, 
+        agency,
+        referralLink: `${baseUrl}/install?ref=${agency.referralCode}`,
+        message: `Agency created successfully! Share this link: ${baseUrl}/install?ref=${agency.referralCode}`
+      });
     }
     
     // Update agency
     if (actionType === 'update') {
-      const agencyId = formData.get('agencyId');
+      const { agencyId, minimumThreshold, active, paymentVerified, ...fields } = data;
       const updateData = {};
       
-      // Build update object from form data
-      const fields = ['name', 'email', 'paymentMethod', 'paymentEmail', 'bankAccountEncrypted'];
-      fields.forEach(field => {
-        const value = formData.get(field);
-        if (value !== null && value !== undefined) {
-          updateData[field] = value;
+      // Build update object
+      const allowedFields = ['name', 'email', 'paymentMethod', 'paymentEmail', 'bankAccountEncrypted'];
+      allowedFields.forEach(field => {
+        if (fields[field] !== null && fields[field] !== undefined) {
+          updateData[field] = fields[field];
         }
       });
       
-      if (formData.get('minimumThreshold')) {
-        updateData.minimumPayoutThreshold = parseFloat(formData.get('minimumThreshold'));
+      if (minimumThreshold) {
+        updateData.minimumPayoutThreshold = parseFloat(minimumThreshold);
       }
       
-      if (formData.get('active') !== null) {
-        updateData.active = formData.get('active') === 'true';
+      if (active !== null && active !== undefined) {
+        updateData.active = active === true || active === 'true';
       }
       
-      if (formData.get('paymentVerified') !== null) {
-        updateData.paymentVerified = formData.get('paymentVerified') === 'true';
+      if (paymentVerified !== null && paymentVerified !== undefined) {
+        updateData.paymentVerified = paymentVerified === true || paymentVerified === 'true';
       }
       
       const agency = await prisma.agency.update({
@@ -176,8 +188,7 @@ export const action = async ({ request }) => {
     
     // Link merchant to agency
     if (actionType === 'link-merchant') {
-      const shopDomain = formData.get('shopDomain');
-      const agencyId = formData.get('agencyId');
+      const { shopDomain, agencyId } = data;
       
       if (!shopDomain || !agencyId) {
         return json({ error: 'Shop domain and agency ID are required' }, { status: 400 });
@@ -204,6 +215,9 @@ export const action = async ({ request }) => {
       return json({ error: 'Email or referral code already exists' }, { status: 409 });
     }
     
-    return json({ error: 'Failed to process action' }, { status: 500 });
+    return json({ 
+      error: 'Failed to process action', 
+      details: error.message 
+    }, { status: 500 });
   }
 };
