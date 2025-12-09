@@ -1,5 +1,4 @@
 ﻿import { login } from "../shopify.server";
-import { loginErrorMessage } from "./auth.login/error.server";
 import prisma from "../db.server";
 
 export const loader = async ({ request }) => {
@@ -14,6 +13,7 @@ export const loader = async ({ request }) => {
   }
   
   try {
+    // Store referral code if provided
     if (ref) {
       console.log("Storing referral code for OAuth callback");
       await prisma.pendingReferral.upsert({
@@ -28,16 +28,16 @@ export const loader = async ({ request }) => {
           expiresAt: new Date(Date.now() + 60 * 60 * 1000),
         },
       });
+      console.log("Referral code stored successfully");
     }
     
-    const errors = loginErrorMessage(await login(request));
-    
-    if (errors?.shop) {
-      return new Response(errors.shop, { status: 400 });
-    }
+    // Initiate OAuth flow - this will redirect to Shopify
+    console.log("Initiating OAuth flow for shop:", shop);
+    return await login(request);
     
   } catch (error) {
     console.error("Auth error:", error);
-    return new Response("Authentication error: " + error.message, { status: 500 });
+    console.error("Error stack:", error.stack);
+    return new Response("Authentication error: " + (error.message || "Unknown error"), { status: 500 });
   }
 };
