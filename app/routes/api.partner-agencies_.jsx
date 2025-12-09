@@ -6,7 +6,6 @@
 
 import { json } from '@remix-run/node';
 import prisma from '../db.server';
-import { authenticate } from '../shopify.server';
 import crypto from 'crypto';
 
 /**
