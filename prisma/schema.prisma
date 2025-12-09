@@ -183,6 +183,39 @@ model AnalyticsMetrics {
   @@index([shopDomain, date])
 }
 
+<<<<<<< HEAD
+=======
+model CartAbandonmentLog {
+  id                 String    @id
+  shopDomain         String
+  sessionId          String
+  customerId         String?
+  discountCode       String
+  createdAt          DateTime  @default(now())
+  cartTotal          Float?
+  discountPercentage Int
+  updatedAt          DateTime
+  used               Boolean   @default(false)
+  usedAt             DateTime?
+
+  @@index([sessionId, shopDomain])
+  @@index([shopDomain, createdAt])
+}
+
+model CartAbandonmentSettings {
+  id           Int      @id @default(autoincrement())
+  shopDomain   String   @unique
+  enabled      Boolean  @default(false)
+  discount     Int      @default(10)
+  delayMinutes Int      @default(5)
+  message      String   @default("Don't miss out! Complete your purchase and get {discount}% off!")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+
+  @@index([shopDomain])
+}
+
+>>>>>>> main
 model CustomerFeedback {
   id            Int      @id @default(autoincrement())
   shopDomain    String
@@ -254,6 +287,7 @@ model feedback_sessions {
   @@index([feedback_token], map: "idx_feedback_sessions_token")
 }
 
+<<<<<<< HEAD
 model CartAbandonmentLog {
   id                 String    @id @default(cuid())
   shopDomain         String
@@ -282,4 +316,62 @@ model CartAbandonmentSettings {
   updatedAt    DateTime
 
   @@index([shopDomain])
+=======
+// Partner Program Models
+model Agency {
+  id                      String             @id @default(cuid())
+  name                    String
+  email                   String             @unique
+  referralCode            String             @unique
+  paymentMethod           String?            // 'wise', 'paypal', 'bank_transfer'
+  paymentEmail            String?            // for PayPal/Wise
+  bankAccountEncrypted    String?            // encrypted bank details
+  minimumPayoutThreshold  Decimal            @default(25.00)
+  active                  Boolean            @default(true)
+  paymentVerified         Boolean            @default(false)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  merchantReferrals       MerchantReferral[]
+  partnerPayouts          PartnerPayout[]
+
+  @@index([referralCode])
+  @@index([email])
+}
+
+model MerchantReferral {
+  id                String    @id @default(cuid())
+  shopDomain        String    @unique
+  agencyId          String
+  referredAt        DateTime  @default(now())
+  lastBilledAmount  Decimal?
+  lastBilledAt      DateTime?
+  lifetimeRevenue   Decimal   @default(0)
+  active            Boolean   @default(true)
+  agency            Agency    @relation(fields: [agencyId], references: [id])
+
+  @@index([shopDomain])
+  @@index([agencyId])
+  @@index([agencyId, active])
+}
+
+model PartnerPayout {
+  id                  String    @id @default(cuid())
+  agencyId            String
+  monthFor            DateTime  // First day of month
+  grossAmount         Decimal   @default(0)
+  commissionAmount    Decimal   @default(0)
+  commissionRate      Decimal   @default(0.25) // 25% commission
+  paid                Boolean   @default(false)
+  paymentReference    String?
+  paymentMethod       String?   // 'wise', 'paypal', 'manual'
+  paidAt              DateTime?
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  agency              Agency    @relation(fields: [agencyId], references: [id])
+
+  @@unique([agencyId, monthFor])
+  @@index([agencyId, monthFor])
+  @@index([paid])
+>>>>>>> main
 }
