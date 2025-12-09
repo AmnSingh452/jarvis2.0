@@ -1,48 +1,43 @@
-import { authenticate } from "../shopify.server";
+﻿import { login } from "../shopify.server";
+import { loginErrorMessage } from "./auth.login/error.server";
+import prisma from "../db.server";
 
-export const loader = async ({ request, params }) => {
+export const loader = async ({ request }) => {
   const url = new URL(request.url);
-  console.log("🔍 AUTH CATCH-ALL ROUTE HIT:");
-  console.log("📍 Full URL:", request.url);
-  console.log("📍 Pathname:", url.pathname);
-  console.log("📍 Params:", params);
-  console.log("📍 Search params:", url.searchParams.toString());
-  console.log("📍 User Agent:", request.headers.get('user-agent'));
-  console.log("📍 Referer:", request.headers.get('referer'));
+  const shop = url.searchParams.get("shop");
+  const ref = url.searchParams.get("ref");
   
-  // If this is a callback attempt, let's see what we got
-  if (url.pathname.includes('callback')) {
-    console.log("🚨 CALLBACK ATTEMPT DETECTED but not hitting auth.callback.jsx");
-    console.log("🚨 This suggests the callback URL might be different than expected");
-    console.log("🚨 Expected: /auth/callback");
-    console.log("🚨 Actual:", url.pathname);
+  console.log("AUTH ROUTE: shop=" + shop + ", ref=" + ref);
+  
+  if (!shop) {
+    return new Response("Missing shop parameter", { status: 400 });
   }
-
+  
   try {
-    console.log("🔐 Attempting authentication in catch-all route...");
-    const { session, admin } = await authenticate.admin(request);
-    
-    if (session) {
-      console.log("✅ Authentication successful in catch-all!");
-      console.log("📊 Session details:", {
-        shop: session.shop,
-        scope: session.scope,
-        hasToken: !!session.accessToken,
-        isOnline: session.isOnline,
-        userId: session.userId
+    if (ref) {
+      console.log("Storing referral code for OAuth callback");
+      await prisma.pendingReferral.upsert({
+        where: { shopDomain: shop },
+        create: {
+          shopDomain: shop,
+          referralCode: ref,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        },
+        update: {
+          referralCode: ref,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        },
       });
-      console.log("🚀 Redirecting to main app...");
-    } else {
-      console.log("⚠️ No session found in catch-all route");
     }
+    
+    const errors = loginErrorMessage(await login(request));
+    
+    if (errors?.shop) {
+      return new Response(errors.shop, { status: 400 });
+    }
+    
   } catch (error) {
-    console.log("❌ Auth catch-all authentication error:", error.message);
-    console.log("📋 Error details:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack?.substring(0, 500)
-    });
+    console.error("Auth error:", error);
+    return new Response("Authentication error: " + error.message, { status: 500 });
   }
-
-  return null;
 };

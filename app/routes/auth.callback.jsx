@@ -5,14 +5,6 @@ export const loader = async ({ request }) => {
   console.log("🔐 Traditional OAuth callback (non-embedded apps only)");
   console.log("📍 Request URL:", request.url);
   
-  // Extract referral code from URL if present
-  const url = new URL(request.url);
-  const referralCode = url.searchParams.get('ref');
-  
-  if (referralCode) {
-    console.log(`📎 Referral code detected: ${referralCode}`);
-  }
-  
   try {
     const { session } = await authenticate.admin(request);
     console.log(`session:`, session);
@@ -20,6 +12,31 @@ export const loader = async ({ request }) => {
     if (session) {
       console.log(`✅ Authentication successful for shop: ${session.shop}`);
       
+      // Check for pending referral code
+      let referralCode = null;
+      try {
+        const pendingReferral = await db.pendingReferral.findUnique({
+          where: { shopDomain: session.shop },
+        });
+        
+        if (pendingReferral && pendingReferral.expiresAt > new Date()) {
+          referralCode = pendingReferral.referralCode;
+          console.log(`📎 Retrieved referral code from pending: ${referralCode}`);
+          
+          // Delete the pending referral after use
+          await db.pendingReferral.delete({
+            where: { shopDomain: session.shop },
+          });
+        } else if (pendingReferral) {
+          console.log(`⚠️ Pending referral expired for ${session.shop}`);
+          // Clean up expired referral
+          await db.pendingReferral.delete({
+            where: { shopDomain: session.shop },
+          }).catch(() => {});
+        }
+      } catch (err) {
+        console.log("Note: No pending referral found (this is normal for direct installs)");
+      }
       // Save or update shop data in the Shop table
       try {
         await db.shop.upsert({

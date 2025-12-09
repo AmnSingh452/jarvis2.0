@@ -341,3 +341,15 @@ model PartnerPayout {
   @@index([agencyId, monthFor])
   @@index([paid])
 }
+
+// Temporary storage for referral codes during OAuth flow
+model PendingReferral {
+  id           String   @id @default(cuid())
+  shopDomain   String   @unique
+  referralCode String
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime // Auto-expire after 1 hour
+
+  @@index([shopDomain])
+  @@index([expiresAt])
+}
