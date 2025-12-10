@@ -12,9 +12,9 @@ export const loader = async ({ request }) => {
     return new Response("Missing shop parameter", { status: 400 });
   }
   
-  try {
-    // Store referral code if provided
-    if (ref) {
+  // Store referral code if provided
+  if (ref) {
+    try {
       console.log("Storing referral code for OAuth callback");
       await prisma.pendingReferral.upsert({
         where: { shopDomain: shop },
@@ -29,15 +29,16 @@ export const loader = async ({ request }) => {
         },
       });
       console.log("Referral code stored successfully");
+    } catch (dbError) {
+      console.error("Error storing referral code:", dbError);
+      // Continue with OAuth even if referral storage fails
     }
-    
-    // Initiate OAuth flow - this will redirect to Shopify
-    console.log("Initiating OAuth flow for shop:", shop);
-    return await login(request);
-    
-  } catch (error) {
-    console.error("Auth error:", error);
-    console.error("Error stack:", error.stack);
-    return new Response("Authentication error: " + (error.message || "Unknown error"), { status: 500 });
   }
+  
+  // Initiate OAuth flow - login() will throw a redirect response
+  console.log("Initiating OAuth flow for shop:", shop);
+  await login(request);
+  
+  // If we reach here, login returned without redirecting (error case)
+  return new Response("Failed to initiate OAuth", { status: 500 });
 };
